@@ -1,0 +1,992 @@
+// src/engine/jogo.js
+import { MUNDO, REGIOES } from '../content/mundo.js';
+import { ITENS, acharItem, precoVenda, normalizar, SLOTS_EQUIP } from '../content/itens.js';
+import { INIMIGOS } from '../content/inimigos.js';
+import { QUESTS } from '../content/quests.js';
+import { RACAS } from '../content/racas.js';
+import { CLASSES } from '../content/classes.js';
+import { MAGIAS } from '../content/magias.js';
+import { ALIASES_EN, DIRECOES_EN } from '../content/i18n.js';
+import { sortearEvento } from '../content/eventos.js';
+import { EFEITOS, EFEITOS_INIMIGOS } from '../content/efeitos.js';
+import { INIMIGOS_ARENA, ARENA_INFO } from '../content/arena.js';
+import { RECEITAS, acharReceita } from '../content/receitas.js';
+import { ENCANTAMENTOS } from '../content/encantamentos.js';
+
+const d6 = () => 1 + Math.floor(Math.random() * 6);
+
+export function novoJogo(opcoes = {}) {
+  const nome = typeof opcoes === 'string' ? opcoes : (opcoes.nome || 'Herói');
+  const racaId = opcoes.raca || 'humano';
+  const classeId = opcoes.classe || 'guerreiro';
+  const raca = RACAS[racaId] || RACAS.humano;
+  const classe = CLASSES[classeId] || CLASSES.guerreiro;
+  const base = { hpMax: 30, atk: 5, def: 2, manaMax: 10, moedas: 20 };
+  const bonus = {
+    hpMax: (raca.bonus.hpMax || 0) + (classe.bonus.hpMax || 0),
+    atk: (raca.bonus.atk || 0) + (classe.bonus.atk || 0),
+    def: (raca.bonus.def || 0) + (classe.bonus.def || 0),
+    manaMax: (raca.bonus.manaMax || 0) + (classe.bonus.manaMax || 0),
+  };
+  const hpMax = Math.max(15, base.hpMax + bonus.hpMax);
+  const manaMax = Math.max(0, base.manaMax + bonus.manaMax);
+
+  return {
+    versao: 7,
+    nome: (nome || '').trim() || 'Herói',
+    raca: racaId, classe: classeId,
+    nivel: 1, xp: 0, xpProx: 20,
+    hpMax, hp: hpMax, manaMax, mana: manaMax,
+    atk: base.atk + bonus.atk, def: base.def + bonus.def,
+    moedas: base.moedas,
+    magias: [...(classe.magias || [])],
+    efeitos: [],
+    local: 'pedraverde',
+    inventario: [{ id: 'pocao', qtd: 2 }, { id: 'pao', qtd: 2 }],
+    equipado: { arma: null, escudo: null, elmo: null, armadura: null, botas: null, anel: null, colar: null, capa: null },
+    encantamentos: {},
+    questsAtivas: [], questsCompletas: [], progresso: {}, flags: {},
+    emCombate: null,
+    estatisticas: {
+      locaisVisitados: ['pedraverde'], inimigosMortos: {},
+      mortes: 0, danoTotal: 0, danoRecebido: 0, magiasLancadas: 0,
+      eventosVividos: 0, turnosDeCombate: 0, vitoriasArena: 0, nocauteArena: 0,
+      itensCriados: 0, itensEncantados: 0, criadoEm: Date.now(),
+    },
+    atualizadoEm: Date.now(),
+  };
+}
+
+/* ---------- Helpers ---------- */
+export function atkTotal(e) {
+  let total = e.atk;
+  for (const slot of SLOTS_EQUIP) {
+    const id = e.equipado?.[slot]; if (!id) continue;
+    const it = ITENS[id]; if (it?.atk) total += it.atk;
+    const enc = e.encantamentos?.[slot];
+    if (enc && ENCANTAMENTOS[enc]?.bonus?.atk) total += ENCANTAMENTOS[enc].bonus.atk;
+  }
+  for (const ef of (e.efeitos || [])) {
+    const def = EFEITOS[ef.tipo]; if (def?.tipo === 'atk') total += def.valor;
+  }
+  return Math.max(0, total);
+}
+export function defTotal(e) {
+  let total = e.def;
+  for (const slot of SLOTS_EQUIP) {
+    const id = e.equipado?.[slot]; if (!id) continue;
+    const it = ITENS[id]; if (it?.def) total += it.def;
+    const enc = e.encantamentos?.[slot];
+    if (enc && ENCANTAMENTOS[enc]?.bonus?.def) total += ENCANTAMENTOS[enc].bonus.def;
+  }
+  for (const ef of (e.efeitos || [])) {
+    const def = EFEITOS[ef.tipo]; if (def?.tipo === 'def') total += def.valor;
+  }
+  return Math.max(0, total);
+}
+
+function normalizarEstado(e) {
+  if (!e.equipado) e.equipado = {};
+  for (const slot of SLOTS_EQUIP) if (!(slot in e.equipado)) e.equipado[slot] = null;
+  if (!e.encantamentos) e.encantamentos = {};
+  if (!Array.isArray(e.efeitos)) e.efeitos = [];
+  if (!Array.isArray(e.magias)) e.magias = [];
+  if (typeof e.mana !== 'number') e.mana = e.manaMax || 10;
+  if (typeof e.manaMax !== 'number') e.manaMax = 10;
+  if (!e.raca) e.raca = 'humano';
+  if (!e.classe) e.classe = 'guerreiro';
+  if (!e.estatisticas) {
+    e.estatisticas = { locaisVisitados: [e.local || 'pedraverde'], inimigosMortos: {}, mortes: 0, danoTotal: 0, danoRecebido: 0, magiasLancadas: 0, eventosVividos: 0, turnosDeCombate: 0, vitoriasArena: 0, nocauteArena: 0, itensCriados: 0, itensEncantados: 0, criadoEm: Date.now() };
+  }
+  if (!Array.isArray(e.estatisticas.locaisVisitados)) e.estatisticas.locaisVisitados = [];
+  if (!e.estatisticas.inimigosMortos) e.estatisticas.inimigosMortos = {};
+  if (typeof e.estatisticas.itensCriados !== 'number') e.estatisticas.itensCriados = 0;
+  if (typeof e.estatisticas.itensEncantados !== 'number') e.estatisticas.itensEncantados = 0;
+  return e;
+}
+
+function registrarLocal(e, id) { if (!e.estatisticas.locaisVisitados.includes(id)) e.estatisticas.locaisVisitados.push(id); }
+function addItem(e, id, qtd = 1) { const a = e.inventario.find((i) => i.id === id); if (a) a.qtd += qtd; else e.inventario.push({ id, qtd }); }
+function remItem(e, id, qtd = 1) { const a = e.inventario.find((i) => i.id === id); if (!a || a.qtd < qtd) return false; a.qtd -= qtd; if (a.qtd <= 0) e.inventario = e.inventario.filter((i) => i.id !== id); return true; }
+function qtdItem(e, id) { return e.inventario.find((i) => i.id === id)?.qtd || 0; }
+function barra(a, m, l = 10) { const c = Math.max(0, Math.min(l, Math.round((a / m) * l))); return '█'.repeat(c) + '░'.repeat(l - c); }
+
+const RARIDADES = ['comum', 'incomum', 'raro', 'epico', 'lendario', 'mitico'];
+function tipoRaridade(item) { const r = item?.raridade || 'comum'; return RARIDADES.includes(r) ? `raridade-${r}` : 'sistema'; }
+function raridadeTag(item) {
+  if (!item?.raridade || item.raridade === 'comum') return '';
+  const m = { incomum: '◆', raro: '★', epico: '✦', lendario: '✧', mitico: '✺' };
+  return ` ${m[item.raridade] || ''}`;
+}
+
+/* ---------- Progressão ---------- */
+function checarNivel(e, p) {
+  while (e.xp >= e.xpProx) {
+    e.xp -= e.xpProx; e.nivel += 1;
+    e.xpProx = Math.round(e.xpProx * 1.5);
+    e.hpMax += 5; e.atk += 1; e.def += 1; e.manaMax += 3;
+    e.hp = e.hpMax; e.mana = e.manaMax;
+    p(`✦ LEVEL UP! Nível ${e.nivel}.`, 'level-up');
+  }
+}
+function progredir(e, tipo, alvo, p) {
+  for (const qid of Object.keys(QUESTS)) {
+    const q = QUESTS[qid];
+    if (q.objetivo.tipo !== tipo) continue;
+    if (q.objetivo.alvo !== alvo && q.objetivo.alvo !== 'qualquer') continue;
+    e.progresso[qid] = (e.progresso[qid] || 0) + 1;
+  }
+  checarQuests(e, p);
+}
+function checarQuests(e, p) {
+  for (const qid of [...e.questsAtivas]) {
+    const q = QUESTS[qid];
+    if ((e.progresso[qid] || 0) < q.objetivo.qtd) continue;
+    e.questsAtivas = e.questsAtivas.filter((x) => x !== qid);
+    e.questsCompletas.push(qid);
+    const r = q.recompensa || {};
+    if (r.xp) e.xp += r.xp;
+    if (r.moedas) e.moedas += r.moedas;
+    if (r.itens) r.itens.forEach((id) => addItem(e, id, 1));
+    p(`✔ Quest completa: "${q.titulo}"!`, 'quest');
+    checarNivel(e, p);
+  }
+}
+
+/* ---------- Efeitos ---------- */
+function aplicarEfeito(alvo, tipo, p = null, deInimigo = false) {
+  const def = EFEITOS[tipo];
+  if (!def) {
+    if (tipo === 'atordoado' || tipo === 'congelado') {
+      if (!alvo.efeitos) alvo.efeitos = [];
+      alvo.efeitos = alvo.efeitos.filter((x) => x.tipo !== tipo);
+      alvo.efeitos.push({ tipo, valor: 0, duracao: 1 });
+      if (p) p(`${tipo === 'atordoado' ? '⚡' : '❄'} ${deInimigo ? 'Você' : 'Alvo'} ficou ${tipo}!`, deInimigo ? 'evento-ruim' : 'buff');
+    }
+    return;
+  }
+  if (!alvo.efeitos) alvo.efeitos = [];
+  alvo.efeitos = alvo.efeitos.filter((ef) => ef.tipo !== tipo);
+  alvo.efeitos.push({ tipo, valor: def.valor, duracao: def.duracao });
+  if (p) {
+    const quem = deInimigo ? 'Você' : 'Alvo';
+    p(`${def.emoji} ${quem} recebe ${def.nome}!`, deInimigo ? 'evento-ruim' : 'buff');
+  }
+}
+function tickEfeitos(alvo, p, quem = 'Você') {
+  if (!alvo.efeitos?.length) return;
+  const restantes = [];
+  for (const ef of alvo.efeitos) {
+    const def = EFEITOS[ef.tipo];
+    if (!def) {
+      if (ef.tipo === 'atordoado' || ef.tipo === 'congelado') restantes.push(ef);
+      continue;
+    }
+    if (def.tipo === 'dano') {
+      alvo.hp = Math.max(0, alvo.hp - ef.valor);
+      p(`${def.emoji} ${quem} sofre ${ef.valor} de ${def.nome}. (${alvo.hp}/${alvo.hpMax})`, 'dano-status');
+    } else if (def.tipo === 'cura') {
+      const antes = alvo.hp;
+      alvo.hp = Math.min(alvo.hpMax, alvo.hp + ef.valor);
+      if (alvo.hp > antes) p(`${def.emoji} ${quem} regenera ${alvo.hp - antes} HP.`, 'cura');
+    }
+    const d = ef.duracao - 1;
+    if (d > 0) restantes.push({ ...ef, duracao: d });
+  }
+  alvo.efeitos = restantes;
+}
+function resumoEfeitos(e) {
+  if (!e.efeitos?.length) return '';
+  return e.efeitos.map((ef) => {
+    const def = EFEITOS[ef.tipo];
+    if (!def) return '';
+    if (def.tipo === 'atk' || def.tipo === 'def') { const s = def.valor > 0 ? '+' : ''; return `${def.emoji}${s}${def.valor}(${ef.duracao}t)`; }
+    return `${def.emoji}(${ef.duracao}t)`;
+  }).filter(Boolean).join(' ');
+}
+
+/* ---------- Eventos ---------- */
+function talvezEvento(e, local, p) {
+  if (!local.inimigos?.length && !local.chefe) return;
+  if (Math.random() > 0.15) return;
+  const ev = sortearEvento();
+  ev.aplicar(e, p);
+  e.estatisticas.eventosVividos += 1;
+}
+
+/* ---------- Magias ---------- */
+function lancarMagia(e, magiaId, p) {
+  const ini = e.emCombate; if (!ini) { p('Só em combate.', 'erro'); return false; }
+  const m = MAGIAS[magiaId];
+  if (!m) { p('Magia desconhecida.', 'erro'); return false; }
+  if (!e.magias?.includes(magiaId)) { p(`Você não conhece "${m.nome}".`, 'erro'); return false; }
+  if (e.mana < m.mana) { p(`Mana insuficiente (${e.mana}/${m.mana}).`, 'erro'); return false; }
+  e.mana -= m.mana; e.estatisticas.magiasLancadas += 1;
+  p(`${m.emoji} Você conjura ${m.nome}!`, 'magia');
+  if (m.tipo === 'ataque') {
+    let dano = m.dano ? m.dano + d6() : Math.round(atkTotal(e) * (m.multiplicador || 1));
+    if (!m.ignoraDef) dano -= ini.def;
+    dano = Math.max(1, dano);
+    if (!m.semErro && Math.random() < 0.1) p('✖ A magia errou.', 'erro');
+    else {
+      ini.hp -= dano; e.estatisticas.danoTotal += dano;
+      const ex = [];
+      if (m.ignoraDef) ex.push('ignora DEF');
+      if (m.chanceAtordoar && Math.random() < m.chanceAtordoar) { aplicarEfeito(ini, 'atordoado'); ex.push('ATORDOADO'); }
+      if (m.chanceCongelar && Math.random() < m.chanceCongelar) { aplicarEfeito(ini, 'congelado'); ex.push('CONGELADO'); }
+      const tag = ex.length ? ` (${ex.join(', ')})` : '';
+      p(`✦ ${m.nome} causa ${dano}${tag}.`, 'dano-magico');
+    }
+    if (ini.hp <= 0) { vencer(e, p); return true; }
+  } else if (m.tipo === 'suporte') {
+    if (m.cura) { const a = e.hp; e.hp = Math.min(e.hpMax, e.hp + m.cura); p(`✚ Recupera ${e.hp - a} HP.`, 'cura'); }
+    if (m.buff) {
+      if (m.buff.atk) aplicarEfeito(e, 'forca');
+      if (m.buff.def) { e.efeitos = (e.efeitos || []).filter((ef) => ef.tipo !== 'def-buff'); e.efeitos.push({ tipo: 'def-buff', valor: m.buff.def, duracao: m.buff.duracao }); }
+      p(`✦ Efeitos: ${resumoEfeitos(e)}`, 'buff');
+    }
+  }
+  return true;
+}
+
+/* ---------- Arena ---------- */
+function iniciarCombateArena(e, id, p) {
+  const b = INIMIGOS[id];
+  e.emCombate = {
+    id, nome: b.nome, hp: b.hp, hpMax: b.hp, atk: b.atk, def: b.def,
+    chefe: false, turno: 1,
+    defesaAtiva: false, esquivaAtiva: false, criticoCarregado: false,
+    inimigoDefendendo: false, inimigoEsquivando: false, inimigoFocando: false,
+    enfurecido: false, efeitos: [], arena: true,
+  };
+  p(`⚔ TREINO: um ${b.nome}!`, 'arena');
+  if (b.desc) p(b.desc, 'sistema');
+  mostrarStatusCombate(e, p);
+}
+function listarArena(e, p) {
+  p(`— ${ARENA_INFO.nome} —`, 'arena');
+  p(ARENA_INFO.desc, 'sistema');
+  ARENA_INFO.regras.forEach((r) => p('  · ' + r, 'sistema'));
+  p('Disponíveis:', 'titulo');
+  for (const id of INIMIGOS_ARENA) {
+    const i = INIMIGOS[id]; if (!i) continue;
+    const m = e.estatisticas.inimigosMortos[id] || 0;
+    p(`  ${i.nome} — HP ${i.hp} · ATK ${i.atk} · DEF ${i.def}${m > 0 ? ` (${m}x)` : ''}`, 'arena');
+  }
+  p('Use "treinar <inimigo>".', 'sistema');
+}
+
+/* ---------- Combate ---------- */
+const ACOES_COMBATE = ['atacar', 'forte', 'rapido', 'defender', 'esquivar', 'focar', 'fugir'];
+const PERMITIDOS_EM_COMBATE = [...ACOES_COMBATE, 'usar', 'magia', 'magias', 'inventario', 'inv', 'i', 'status', 'ajuda', 'olhar', 'equipar'];
+
+function iniciarCombate(e, id, p) {
+  const b = INIMIGOS[id];
+  e.emCombate = {
+    id, nome: b.nome, hp: b.hp, hpMax: b.hp, atk: b.atk, def: b.def,
+    chefe: !!b.chefe, turno: 1,
+    defesaAtiva: false, esquivaAtiva: false, criticoCarregado: false,
+    inimigoDefendendo: false, inimigoEsquivando: false, inimigoFocando: false,
+    enfurecido: false, efeitos: [], arena: false,
+  };
+  const tipo = b.chefe ? 'combate-chefe' : 'combate-inicio';
+  p(`⚔ ${b.chefe ? 'CHEFE! ' : ''}Um ${b.nome} surge!`, tipo);
+  if (b.desc) p(b.desc, 'sistema');
+  mostrarStatusCombate(e, p);
+}
+function mostrarStatusCombate(e, p) {
+  const ini = e.emCombate; if (!ini) return;
+  p(`${ini.arena ? '⚔ TREINO — ' : ''}Turno ${ini.turno}`, 'combate-turno');
+  p(`  ${ini.nome}: [${barra(ini.hp, ini.hpMax)}] ${Math.max(0, ini.hp)}/${ini.hpMax}`, 'combate');
+  p(`  Você:        [${barra(e.hp, e.hpMax)}] ${e.hp}/${e.hpMax}`, 'combate');
+  if (e.manaMax > 0) p(`  Mana:        [${barra(e.mana, e.manaMax)}] ${e.mana}/${e.manaMax}`, 'mana');
+  const ef = [];
+  if (ini.defesaAtiva) ef.push('🛡 defendendo');
+  if (ini.esquivaAtiva) ef.push('💨 esquivando');
+  if (ini.criticoCarregado) ef.push('🎯 crítico pronto');
+  const res = resumoEfeitos(e); if (res) ef.push(res);
+  if (ef.length) p('  Você: ' + ef.join(' | '), 'destaque');
+  const efI = [];
+  if (ini.inimigoDefendendo) efI.push('🛡 defendendo');
+  if (ini.inimigoEsquivando) efI.push('💨 esquivando');
+  if (ini.inimigoFocando) efI.push('🎯 focando');
+  if (ini.enfurecido) efI.push('🔥 ENFURECIDO');
+  for (const x of (ini.efeitos || [])) {
+    const d = EFEITOS[x.tipo];
+    if (d) efI.push(`${d.emoji} ${d.nome}`);
+    else if (x.tipo === 'atordoado') efI.push('⚡ atordoado');
+    else if (x.tipo === 'congelado') efI.push('❄ congelado');
+  }
+  if (efI.length) p('  Inimigo: ' + efI.join(' | '), 'combate');
+  p('Ações: atacar · forte · rapido · defender · esquivar · focar · magia · usar · fugir', 'sistema');
+}
+function ataqueJogador(e, ini, acao) {
+  let dano = atkTotal(e) + d6() - ini.def;
+  let errou = false, critico = false;
+  if (acao === 'forte') { if (Math.random() < 0.3) errou = true; else dano = Math.round(dano * 1.5); }
+  else if (acao === 'rapido') dano = Math.max(1, dano - 2);
+  if (!errou && e.emCombate.criticoCarregado) { dano *= 2; critico = true; }
+  if (!errou && e.emCombate.inimigoDefendendo) dano = Math.max(1, Math.round(dano * 0.4));
+  if (!errou && e.emCombate.inimigoEsquivando && Math.random() < 0.5) errou = true;
+  return { dano: Math.max(1, dano), errou, critico };
+}
+function ataqueInimigo(e, ini, acao) {
+  let dano = ini.atk + d6() - defTotal(e);
+  let errou = false, critico = false;
+  if (ini.enfurecido) dano += 2;
+  if (acao === 'golpe_terra') { dano = Math.round(dano * 2); critico = true; }
+  else if (acao === 'forte') { if (Math.random() < 0.3) errou = true; else dano = Math.round(dano * 1.5); }
+  if (!errou && e.emCombate.defesaAtiva) dano = Math.max(1, Math.round(dano * 0.4));
+  if (!errou && e.emCombate.esquivaAtiva && Math.random() < 0.5) errou = true;
+  return { dano: Math.max(1, dano), errou, critico };
+}
+function escolherAcaoInimigo(e, ini) {
+  const hpJ = e.hp / e.hpMax, hpI = ini.hp / ini.hpMax;
+  if (ini.chefe && ini.id === 'troll' && ini.turno % 3 === 0) return 'golpe_terra';
+  if (hpI < 0.3 && Math.random() < 0.5) return Math.random() < 0.5 ? 'defender' : 'esquivar';
+  if (hpJ < 0.3 && Math.random() < 0.5) return 'forte';
+  if (Math.random() < 0.2 && !ini.inimigoFocando) return 'focar';
+  return 'atacar';
+}
+function turnoInimigo(e, p) {
+  const ini = e.emCombate; if (!ini) return;
+  tickEfeitos(ini, p, ini.nome);
+  if (ini.hp <= 0) { vencer(e, p); return; }
+  const at = ini.efeitos?.find((x) => x.tipo === 'atordoado');
+  const cg = ini.efeitos?.find((x) => x.tipo === 'congelado');
+  if (at) { p(`⚡ ${ini.nome} atordoado.`, 'sucesso'); ini.efeitos = ini.efeitos.filter((x) => x.tipo !== 'atordoado'); ini.turno += 1; mostrarStatusCombate(e, p); return; }
+  if (cg) { p(`❄ ${ini.nome} congelado.`, 'sucesso'); ini.efeitos = ini.efeitos.filter((x) => x.tipo !== 'congelado'); ini.turno += 1; mostrarStatusCombate(e, p); return; }
+  const acao = escolherAcaoInimigo(e, ini);
+  ini.inimigoDefendendo = false; ini.inimigoEsquivando = false;
+  if (acao === 'defender') { ini.inimigoDefendendo = true; p(`🛡 ${ini.nome} defende.`, 'combate'); }
+  else if (acao === 'esquivar') { ini.inimigoEsquivando = true; p(`💨 ${ini.nome} esquiva.`, 'combate'); }
+  else if (acao === 'focar') { ini.inimigoFocando = true; p(`🎯 ${ini.nome} foca.`, 'combate'); }
+  else {
+    const { dano, errou, critico } = ataqueInimigo(e, ini, acao);
+    if (errou) { p(`✔ ${ini.nome} errou!`, 'esquiva'); ini.inimigoFocando = false; }
+    else {
+      let d = dano; if (ini.inimigoFocando) { d *= 2; ini.inimigoFocando = false; }
+      e.hp -= d; e.estatisticas.danoRecebido += d;
+      const ex = []; if (critico) ex.push('PESADO');
+      p(`💥 ${ini.nome}${ex.length ? ' (' + ex.join(', ') + ')' : ''} causa ${d}. (${Math.max(0, e.hp)}/${e.hpMax})`, 'dano-recebido');
+      const ef = EFEITOS_INIMIGOS[ini.id];
+      if (ef && Math.random() < ef.chance) aplicarEfeito(e, ef.tipo, p, true);
+    }
+  }
+  if (ini.chefe && !ini.enfurecido && ini.hp < ini.hpMax * 0.5) { ini.enfurecido = true; p(`🔥 ${ini.nome} ENFURECIDO!`, 'aviso'); }
+  if (e.hp <= 0) { morrer(e, p); return; }
+  e.emCombate.defesaAtiva = false; e.emCombate.esquivaAtiva = false;
+  ini.turno += 1; e.estatisticas.turnosDeCombate += 1;
+  mostrarStatusCombate(e, p);
+}
+function processarCombate(e, cmd, arg, p) {
+  const ini = e.emCombate; if (!ini) return;
+  tickEfeitos(e, p, 'Você');
+  if (e.hp <= 0) { morrer(e, p); return; }
+  if (cmd === 'defender') { e.emCombate.defesaAtiva = true; p('🛡 Defendendo.', 'defesa'); turnoInimigo(e, p); return; }
+  if (cmd === 'esquivar') { e.emCombate.esquivaAtiva = true; p('💨 Esquivando.', 'esquiva'); turnoInimigo(e, p); return; }
+  if (cmd === 'focar') { e.emCombate.criticoCarregado = true; p('🎯 Crítico pronto.', 'critico-pronto'); turnoInimigo(e, p); return; }
+  if (cmd === 'fugir') {
+    if (ini.chefe && !ini.arena) { p('✖ Não dá pra fugir.', 'erro'); turnoInimigo(e, p); return; }
+    if (ini.arena) { p('✔ Sai do ringue.', 'fuga'); e.emCombate = null; e.efeitos = []; return; }
+    if (Math.random() < 0.5) { p('✔ Fugiu!', 'fuga'); e.emCombate = null; e.efeitos = []; return; }
+    p('✖ Tropeçou!', 'erro'); turnoInimigo(e, p); return;
+  }
+  if (cmd === 'magia') {
+    const mid = normalizar(arg); if (!mid) { p('Qual magia?', 'erro'); return; }
+    const ok = lancarMagia(e, mid, p);
+    if (ok && e.emCombate) turnoInimigo(e, p);
+    return;
+  }
+  const { dano, errou, critico } = ataqueJogador(e, ini, cmd);
+  if (errou) p(`✖ Você errou!`, 'erro');
+  else {
+    ini.hp -= dano; e.estatisticas.danoTotal += dano;
+    const ex = []; if (critico) ex.push('CRÍTICO'); if (cmd === 'forte') ex.push('forte'); if (cmd === 'rapido') ex.push('rápido');
+    p(`⚔ Você${ex.length ? ' (' + ex.join(', ') + ')' : ''} causa ${dano}.`, critico ? 'dano-critico' : 'dano-causado');
+    // Aplica efeito elemental do encantamento da arma
+    const encArma = e.encantamentos?.arma;
+    if (encArma && ENCANTAMENTOS[encArma]?.efeito && ini.hp > 0) {
+      const en = ENCANTAMENTOS[encArma];
+      if (Math.random() < en.chance) {
+        aplicarEfeito(ini, en.efeito);
+        p(`${en.emoji} ${en.nome} ativa! ${ini.nome} recebe ${en.efeito}!`, 'dano-magico');
+      }
+    }
+  }
+  e.emCombate.criticoCarregado = false;
+  if (ini.hp <= 0) { vencer(e, p); return; }
+  turnoInimigo(e, p);
+}
+function vencer(e, p) {
+  const ini = e.emCombate;
+  const b = INIMIGOS[ini.id];
+  if (ini.arena) {
+    p(`☠ ${ini.nome} derrotado!`, 'arena');
+    const xp = Math.round(b.xp * 0.5);
+    e.xp += xp; e.estatisticas.vitoriasArena += 1;
+    p(`+${xp} XP.`, 'xp');
+    e.emCombate = null; e.efeitos = [];
+    checarNivel(e, p);
+    return;
+  }
+  p(`☠ ${ini.nome} derrotado em ${ini.turno} turnos!`, 'vitoria');
+  e.xp += b.xp;
+  e.estatisticas.inimigosMortos[ini.id] = (e.estatisticas.inimigosMortos[ini.id] || 0) + 1;
+  p(`+${b.xp} XP.`, 'xp');
+  if (b.loot?.length) {
+    const n = [];
+    for (const id of b.loot) { addItem(e, id, 1); n.push(ITENS[id].nome); }
+    p(`Loot: ${n.join(', ')}.`, 'loot');
+  }
+  e.flags[`derrotou_${ini.id}`] = true;
+  e.emCombate = null; e.efeitos = [];
+  progredir(e, 'matar', ini.id, p);
+  checarNivel(e, p);
+}
+function morrer(e, p) {
+  const ini = e.emCombate;
+  const arena = ini?.arena;
+  e.emCombate = null; e.efeitos = [];
+  if (arena) {
+    e.hp = 1; e.mana = Math.max(0, Math.floor(e.manaMax * 0.3));
+    e.estatisticas.nocauteArena += 1;
+    p('✖ Nocauteado!', 'arena');
+    p('Rodrigo: "Levanta, moleque."', 'arena');
+    return;
+  }
+  const perdidas = Math.floor(e.moedas * 0.2);
+  e.moedas -= perdidas;
+  e.hp = e.hpMax; e.mana = e.manaMax;
+  e.local = 'pedraverde';
+  e.estatisticas.mortes += 1;
+  p('✖ Você caiu...', 'morte');
+  p(`Acorda em Pedraverde. -${perdidas} moedas.`, 'morte');
+}
+
+/* ---------- CRAFTING ---------- */
+function listarReceitas(e, p, filtro) {
+  const lista = filtro ? RECEITAS.filter((r) => r.estacao === filtro) : RECEITAS;
+  if (!lista.length) { p('Nenhuma receita.', 'erro'); return; }
+  p(`— Receitas${filtro ? ` (${filtro})` : ''} —`, 'titulo');
+  for (const r of lista) {
+    const item = ITENS[r.id]; if (!item) continue;
+    const nivelOk = e.nivel >= (r.nivel || 1);
+    const mats = Object.entries(r.materiais).map(([mid, q]) => {
+      const tem = qtdItem(e, mid);
+      const ok = tem >= q;
+      return `${ITENS[mid]?.nome || mid}: ${tem}/${q}${ok ? '✓' : '✗'}`;
+    }).join(', ');
+    const moedasOk = e.moedas >= (r.moedas || 0);
+    const tipo = nivelOk && moedasOk ? 'receita-ok' : 'receita-bloq';
+    const nvTag = !nivelOk ? ` 🔒 Nv ${r.nivel}` : '';
+    p(`  ${item.nome}${raridadeTag(item)}${nvTag} — ${r.moedas || 0}◈`, tipo);
+    p(`     ${mats}`, 'sistema');
+  }
+  p('Use "craftar <nome do item>".', 'sistema');
+}
+
+function tentarCraftar(e, arg, p) {
+  const item = acharItem(arg);
+  if (!item) { p('Item não encontrado.', 'erro'); return false; }
+  const r = acharReceita(item.id);
+  if (!r) { p(`${item.nome} não tem receita.`, 'erro'); return false; }
+  if (e.nivel < (r.nivel || 1)) { p(`🔒 Precisa nível ${r.nivel}.`, 'erro'); return false; }
+  if (e.moedas < (r.moedas || 0)) { p(`Moedas insuficientes (precisa ${r.moedas}).`, 'erro'); return false; }
+  for (const [mid, q] of Object.entries(r.materiais)) {
+    if (qtdItem(e, mid) < q) {
+      p(`Falta ${ITENS[mid]?.nome || mid} (tem ${qtdItem(e, mid)}/${q}).`, 'erro');
+      return false;
+    }
+  }
+  for (const [mid, q] of Object.entries(r.materiais)) remItem(e, mid, q);
+  e.moedas -= (r.moedas || 0);
+  addItem(e, item.id, 1);
+  e.estatisticas.itensCriados += 1;
+  p(`⚒ Você forjou ${item.nome}${raridadeTag(item)}!`, 'craft');
+  return true;
+}
+
+/* ---------- ENCANTAMENTO ---------- */
+function tentarEncantar(e, slotArg, encArg, p) {
+  const slot = normalizar(slotArg);
+  if (!SLOTS_EQUIP.includes(slot)) {
+    p(`Slot inválido. Use: ${SLOTS_EQUIP.join(', ')}.`, 'erro');
+    return false;
+  }
+  if (!e.equipado[slot]) { p(`Nada equipado em ${slot}.`, 'erro'); return false; }
+  if (e.encantamentos?.[slot]) {
+    p(`${slot} já tem encantamento. Use "desencantar ${slot}" antes.`, 'erro');
+    return false;
+  }
+  const tipo = normalizar(encArg);
+  const enc = ENCANTAMENTOS[tipo];
+  if (!enc) {
+    const lista = Object.keys(ENCANTAMENTOS).join(', ');
+    p(`Encantamento inválido. Disponíveis: ${lista}.`, 'erro');
+    return false;
+  }
+  if (e.nivel < enc.nivel) { p(`🔒 Precisa nível ${enc.nivel}.`, 'erro'); return false; }
+  if (e.moedas < enc.moedas) { p(`Precisa ${enc.moedas}◈. Você tem ${e.moedas}.`, 'erro'); return false; }
+  if (qtdItem(e, enc.gema) < 1) { p(`Precisa de ${ITENS[enc.gema]?.nome || enc.gema}.`, 'erro'); return false; }
+
+  remItem(e, enc.gema, 1);
+  e.moedas -= enc.moedas;
+  e.encantamentos[slot] = tipo;
+  e.estatisticas.itensEncantados += 1;
+
+  p(`${enc.emoji} Você imbui ${ITENS[e.equipado[slot]].nome} com ${enc.nome}!`, 'encantar');
+  p(`   ${enc.desc}`, 'encantar');
+  return true;
+}
+
+/* ---------- Comando MAPA ---------- */
+function comandoMapa(e, p) {
+  const localAtual = MUNDO[e.local];
+  const visitados = e.estatisticas.locaisVisitados || [];
+  p('🗺️  MAPA DO MUNDO', 'titulo');
+  p('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'sistema');
+  const porRegiao = {};
+  for (const id of Object.keys(MUNDO)) {
+    const loc = MUNDO[id];
+    const r = loc.regiao || 'outros';
+    if (!porRegiao[r]) porRegiao[r] = [];
+    porRegiao[r].push(loc);
+  }
+  for (const rid of Object.keys(REGIOES)) {
+    const reg = REGIOES[rid];
+    const locais = porRegiao[rid] || [];
+    if (!locais.length) continue;
+    const regBloq = locais.every((l) => (l.nivelMinimo || 1) > e.nivel);
+    const regVis = locais.some((l) => visitados.includes(l.id));
+    const st = regBloq ? '🔒' : regVis ? '✓' : '?';
+    p(`${reg.emoji} ${reg.nome} — Nv ${reg.nivel} ${st}`, 'mapa-regiao');
+    for (const loc of locais) {
+      const ehAtual = loc.id === e.local;
+      const bloq = (loc.nivelMinimo || 1) > e.nivel;
+      const vis = visitados.includes(loc.id);
+      const temChefe = !!loc.chefe;
+      const derr = loc.chefe && e.flags[`derrotou_${loc.chefe}`];
+      const marca = [];
+      if (ehAtual) marca.push('← VOCÊ');
+      if (temChefe) marca.push(derr ? '☠✓' : '☠CHEFE');
+      const pref = ehAtual ? '▸' : ' ├─';
+      const trava = bloq ? ` 🔒 Nv ${loc.nivelMinimo}+` : '';
+      const vista = !vis && !ehAtual && !bloq ? ' (?)' : '';
+      p(`  ${pref} ${loc.nome}${trava}${vista} ${marca.join(' ')}`, ehAtual ? 'mapa-atual' : (bloq ? 'mapa-bloqueado' : 'mapa-local'));
+    }
+    p('', 'sistema');
+  }
+  p('Saídas:', 'titulo');
+  const entradas = Object.entries(localAtual.saidas || {});
+  if (!entradas.length) p('  (nenhuma)', 'erro');
+  for (const [dir, destId] of entradas) {
+    const dest = MUNDO[destId]; if (!dest) continue;
+    const bloq = (dest.nivelMinimo || 1) > e.nivel;
+    p(`  ${dir.padEnd(10)} → ${dest.nome}${bloq ? ` 🔒 Nv ${dest.nivelMinimo}+` : ''}`, bloq ? 'mapa-bloqueado' : 'mapa-saida');
+  }
+  p('', 'sistema');
+  p('Legenda: ✓ visitado · ? novo · 🔒 bloqueado · ☠ chefe', 'sistema');
+}
+
+/* ---------- Entrada em local ---------- */
+function aoEntrar(e, p) {
+  const local = MUNDO[e.local];
+  registrarLocal(e, e.local);
+  p(`— ${local.nome} —`, local.arena ? 'arena' : 'local');
+  p(local.desc);
+  if (local.variacoes?.length) {
+    const v = local.variacoes[Math.floor(Math.random() * local.variacoes.length)];
+    if (v) p(v, 'atmosfera');
+  }
+  const chao = (local.itensNoChao || []).filter((id) => !e.flags[`chao_${e.local}_${id}`]);
+  chao.forEach((id) => {
+    const it = ITENS[id];
+    p(`No chão: ${it.nome}${raridadeTag(it)} (use "pegar")`, tipoRaridade(it));
+  });
+  if (local.npc) p(`${local.npc.nome} está aqui. (use "falar")`, 'npc');
+  if (local.loja) p(`Loja: ${local.loja.nome}.`, 'loja-info');
+  const saidas = Object.entries(local.saidas || {}).map(([d, dst]) => `${d} → ${MUNDO[dst].nome}`).join(' | ');
+  if (saidas) p(`Saídas: ${saidas}`, 'saidas');
+  if (local.arena) { listarArena(e, p); return; }
+  if (local.chefe && !e.flags[`derrotou_${local.chefe}`]) {
+    p('O chão treme...', 'aviso');
+    iniciarCombate(e, local.chefe, p);
+    return;
+  }
+  talvezEvento(e, local, p);
+  if (e.hp <= 0) { morrer(e, p); return; }
+  if (local.inimigos?.length && !e.emCombate) {
+    const chance = local.chanceEncontro ?? 0.6;
+    if (Math.random() < chance) {
+      const id = local.inimigos[Math.floor(Math.random() * local.inimigos.length)];
+      iniciarCombate(e, id, p);
+    } else {
+      p('A região está silenciosa...', 'sistema');
+    }
+  }
+}
+
+/* ---------- Comandos ---------- */
+const AJUDA = [
+  'ajuda · olhar · ir <direção> · mapa',
+  'pegar · inventario · equipar · desequipar · usar · descansar',
+  'magias · magia <nome> · efeitos',
+  'bestiario · diario · treinar <inimigo> · status',
+  'receitas · craftar <item> · encantar <slot> <tipo> · desencantar <slot>',
+  'falar · loja · comprar · vender',
+  'quests · aceitar <título>',
+  'salvar · carregar · sair',
+  '— EM COMBATE — atacar · forte · rapido · defender · esquivar · focar · magia · fugir',
+];
+
+export function processar(estadoAnterior, entradaBruta) {
+  const e = normalizarEstado(structuredClone(estadoAnterior));
+  const linhas = [];
+  const p = (t, tipo = 'sistema') => linhas.push({ texto: t, tipo });
+
+  const raw = String(entradaBruta || '').trim();
+  if (!raw) return { estado: estadoAnterior, linhas };
+  p(`> ${raw}`, 'jogador');
+
+  // Suporta comandos em português e inglês
+  const partes = raw.split(/\s+/);
+  let cmdRaw = normalizar(partes[0]);
+  let arg = partes.slice(1).join(' ').trim();
+
+  // Traduz comando EN → PT (se existir alias)
+  if (ALIASES_EN[cmdRaw]) {
+    // Se for direção, traduz o arg também
+    if (cmdRaw === 'go' || cmdRaw === 'walk' || cmdRaw === 'ir') {
+      const dirEn = normalizar(arg);
+      if (DIRECOES_EN[dirEn]) arg = DIRECOES_EN[dirEn];
+    }
+    cmdRaw = ALIASES_EN[cmdRaw];
+  }
+  // Se arg for uma direção em inglês (só para `ir`)
+  if (cmdRaw === 'ir' || cmdRaw === 'andar') {
+    const dEn = normalizar(arg);
+    if (DIRECOES_EN[dEn]) arg = DIRECOES_EN[dEn];
+  }
+  const cmd = cmdRaw;
+
+  if (e.emCombate && !PERMITIDOS_EM_COMBATE.includes(cmd)) {
+    p('⚔ Você está em combate!', 'erro');
+    return { estado: e, linhas };
+  }
+  if (e.emCombate && (ACOES_COMBATE.includes(cmd) || cmd === 'magia')) {
+    processarCombate(e, cmd, arg, p);
+    e.atualizadoEm = Date.now();
+    return { estado: e, linhas };
+  }
+
+  const local = MUNDO[e.local];
+
+  switch (cmd) {
+    case 'ajuda': case 'help': case '?':
+      p('Comandos:', 'titulo');
+      AJUDA.forEach((l) => p('  ' + l, 'sistema'));
+      break;
+
+    case 'mapa': case 'map': case 'm':
+      comandoMapa(e, p);
+      break;
+
+    case 'olhar': case 'l':
+      if (e.emCombate) { const ini = e.emCombate; p(`${ini.nome} — HP ${Math.max(0, ini.hp)}/${ini.hpMax}`, 'combate'); break; }
+      aoEntrar(e, p);
+      break;
+
+    case 'ir': case 'andar': {
+      const dir = normalizar(arg);
+      if (!dir) { p('Ir para onde? Use "mapa".', 'erro'); break; }
+      const dest = local.saidas?.[dir];
+      if (!dest) { p(`Sem saída "${dir}".`, 'erro'); p(`Saídas: ${Object.keys(local.saidas || {}).join(', ') || 'nenhuma'}`, 'saidas'); break; }
+      const dl = MUNDO[dest];
+      const nv = dl.nivelMinimo || 1;
+      if (e.nivel < nv) { p(`🔒 ${dl.nome} exige nível ${nv}+.`, 'erro'); break; }
+      e.local = dest;
+      aoEntrar(e, p);
+      break;
+    }
+
+    case 'pegar': {
+      const chao = (local.itensNoChao || []).filter((id) => !e.flags[`chao_${e.local}_${id}`]);
+      if (!chao.length) { p('Nada aqui.', 'erro'); break; }
+      const id = chao[0];
+      addItem(e, id, 1); e.flags[`chao_${e.local}_${id}`] = true;
+      p(`Pegou: ${ITENS[id].nome}.`, 'pickup');
+      break;
+    }
+
+    case 'inventario': case 'inv': case 'i': {
+      if (!e.inventario.length) { p('Mochila vazia.', 'sistema'); break; }
+      p('Inventário:', 'titulo');
+      for (const it of e.inventario) {
+        const d = ITENS[it.id]; if (!d) continue;
+        const eq = SLOTS_EQUIP.find((s) => e.equipado[s] === it.id);
+        const enc = eq && e.encantamentos?.[eq] ? ` ${ENCANTAMENTOS[e.encantamentos[eq]].emoji}` : '';
+        p(`  ${d.nome}${raridadeTag(d)} x${it.qtd}${eq ? ` [${eq}${enc}]` : ''}`, tipoRaridade(d));
+      }
+      break;
+    }
+
+    case 'equipar': case 'equip': {
+      const item = acharItem(arg);
+      if (!item) { p('Não achou.', 'erro'); break; }
+      if (!qtdItem(e, item.id)) { p(`Sem ${item.nome}.`, 'erro'); break; }
+      if (!SLOTS_EQUIP.includes(item.tipo)) { p('Não equipável.', 'erro'); break; }
+      e.equipado[item.tipo] = item.id;
+      p(`Equipou ${item.nome} [${item.tipo}].`, 'equipar');
+      break;
+    }
+
+    case 'desequipar': case 'remover': {
+      const slot = normalizar(arg);
+      if (!SLOTS_EQUIP.includes(slot)) { p('Slot inválido.', 'erro'); break; }
+      if (!e.equipado[slot]) { p(`Nada em ${slot}.`, 'erro'); break; }
+      const n = ITENS[e.equipado[slot]].nome;
+      e.equipado[slot] = null;
+      p(`Removeu ${n}.`, 'sistema');
+      break;
+    }
+
+    case 'usar': {
+      const item = acharItem(arg);
+      if (!item) { p('Não achou.', 'erro'); break; }
+      if (!qtdItem(e, item.id)) { p(`Sem ${item.nome}.`, 'erro'); break; }
+      if (item.tipo !== 'consumivel') { p('Não consumível.', 'erro'); break; }
+      remItem(e, item.id, 1);
+      if (item.cura) { const a = e.hp; e.hp = Math.min(e.hpMax, e.hp + item.cura); p(`Usou ${item.nome}. +${e.hp - a} HP.`, 'cura'); }
+      if (item.id === 'antidoto') { e.efeitos = (e.efeitos || []).filter((ef) => EFEITOS[ef.tipo]?.tipo !== 'dano'); p('Antídoto.', 'cura'); }
+      if (e.emCombate) turnoInimigo(e, p);
+      break;
+    }
+
+    case 'descansar': case 'dormir': {
+      if (e.emCombate) { p('Em combate!', 'erro'); break; }
+      if (local.inimigos?.length || local.chefe) { p('Perigoso.', 'erro'); break; }
+      const h = e.hp, m = e.mana;
+      e.hp = e.hpMax; e.mana = e.manaMax; e.efeitos = [];
+      p(`Descansou. HP ${h}→${e.hp} | MP ${m}→${e.mana}`, 'cura');
+      break;
+    }
+
+    case 'magias': case 'grimorio': {
+      if (!e.magias?.length) { p('Sem magias.', 'erro'); break; }
+      p('— Grimório —', 'titulo');
+      p(`Mana: ${e.mana}/${e.manaMax}`, 'mana');
+      for (const mid of e.magias) {
+        const m = MAGIAS[mid]; if (!m) continue;
+        p(`  ${m.emoji} ${m.nome} — ${m.mana} MP`, e.mana >= m.mana ? 'magia-disponivel' : 'magia-indisponivel');
+      }
+      break;
+    }
+
+    case 'efeitos': case 'buffs': {
+      if (!e.efeitos?.length) { p('Sem efeitos.', 'sistema'); break; }
+      p('— Efeitos —', 'titulo');
+      for (const ef of e.efeitos) { const d = EFEITOS[ef.tipo]; if (d) p(`  ${d.emoji} ${d.nome} (${ef.duracao}t)`, 'buff'); }
+      break;
+    }
+
+    case 'bestiario': {
+      const m = e.estatisticas.inimigosMortos || {};
+      const ids = Object.keys(m);
+      if (!ids.length) { p('Nada.', 'sistema'); break; }
+      p('— Bestiário —', 'titulo');
+      p(`Únicos: ${ids.length} | Total: ${ids.reduce((a, b) => a + m[b], 0)}`, 'stats');
+      for (const id of ids.sort((a, b) => m[b] - m[a])) {
+        const i = INIMIGOS[id]; if (!i) continue;
+        p(`  ${i.nome}${i.chefe ? ' [CHEFE]' : ''} — ${m[id]}x`, 'bestiario');
+      }
+      break;
+    }
+
+    case 'diario': case 'jornada': {
+      const r = RACAS[e.raca] || RACAS.humano;
+      const c = CLASSES[e.classe] || CLASSES.guerreiro;
+      const s = e.estatisticas;
+      p(`— Diário de ${e.nome} —`, 'titulo');
+      p(`${r.emoji} ${r.nome} · ${c.emoji} ${c.nome} · Nv ${e.nivel}`, 'sistema');
+      p(`Locais: ${s.locaisVisitados.length}/${Object.keys(MUNDO).length}`, 'sistema');
+      p(`Inimigos: ${Object.values(s.inimigosMortos || {}).reduce((a, b) => a + b, 0)}`, 'sistema');
+      p(`Mortes: ${s.mortes} | Arena: ${s.vitoriasArena}v/${s.nocauteArena}n`, 'sistema');
+      p(`Dano: ${s.danoTotal} causado / ${s.danoRecebido} recebido`, 'sistema');
+      p(`Magias: ${s.magiasLancadas} | Criados: ${s.itensCriados} | Encantados: ${s.itensEncantados}`, 'sistema');
+      break;
+    }
+
+    case 'treinar': case 'lutar': {
+      if (e.emCombate) { p('Já em combate.', 'erro'); break; }
+      if (e.local !== 'arena') { p('Só na Arena.', 'erro'); break; }
+      const alvo = normalizar(arg);
+      if (!alvo) { p('Treinar contra quem?', 'erro'); listarArena(e, p); break; }
+      const id = INIMIGOS_ARENA.find((x) => normalizar(x) === alvo || normalizar(INIMIGOS[x]?.nome || '').includes(alvo));
+      if (!id) { p('Não disponível.', 'erro'); break; }
+      iniciarCombateArena(e, id, p);
+      break;
+    }
+
+    /* ============ CRAFTING / ENCANTAMENTO ============ */
+    case 'receitas': case 'receita': {
+      const filtro = normalizar(arg);
+      listarReceitas(e, p, filtro && ['ferraria', 'alquimia', 'cozinha'].includes(filtro) ? filtro : null);
+      break;
+    }
+
+    case 'craftar': case 'forjar': case 'criar': {
+      if (!arg) { p('Craftar o quê? Use "receitas".', 'erro'); break; }
+      tentarCraftar(e, arg, p);
+      break;
+    }
+
+    case 'encantar': {
+      if (!arg) {
+        p('Uso: "encantar <slot> <tipo>"', 'erro');
+        p('Slots: ' + SLOTS_EQUIP.join(', '), 'sistema');
+        p('Tipos: ' + Object.keys(ENCANTAMENTOS).join(', '), 'sistema');
+        break;
+      }
+      const partes2 = arg.split(/\s+/);
+      if (partes2.length < 2) {
+        p('Uso: "encantar <slot> <tipo>".', 'erro');
+        break;
+      }
+      tentarEncantar(e, partes2[0], partes2[1], p);
+      break;
+    }
+
+    case 'desencantar': case 'remover-encantamento': {
+      const slot = normalizar(arg);
+      if (!SLOTS_EQUIP.includes(slot)) { p(`Slot inválido.`, 'erro'); break; }
+      if (!e.encantamentos?.[slot]) { p(`Nada encantado em ${slot}.`, 'erro'); break; }
+      const enc = ENCANTAMENTOS[e.encantamentos[slot]];
+      e.encantamentos[slot] = null;
+      p(`Removeu ${enc.emoji} ${enc.nome} de ${slot}.`, 'sistema');
+      break;
+    }
+
+    case 'encantamentos': case 'lista-encantamentos': {
+      p('— Encantamentos disponíveis —', 'titulo');
+      for (const [id, enc] of Object.entries(ENCANTAMENTOS)) {
+        const nvOk = e.nivel >= enc.nivel;
+        const gema = ITENS[enc.gema];
+        const temGema = qtdItem(e, enc.gema) >= 1;
+        p(`  ${enc.emoji} ${enc.nome} — ${enc.moedas}◈ + ${gema?.nome} ${temGema ? '✓' : '✗'} — Nv ${enc.nivel}${nvOk ? '✓' : '✗'}`, nvOk && temGema ? 'encantar-ok' : 'encantar-bloq');
+        p(`     ${enc.desc}`, 'sistema');
+      }
+      p('Use "encantar <slot> <tipo>" para aplicar.', 'sistema');
+      break;
+    }
+
+    case 'status': {
+      const r = RACAS[e.raca] || RACAS.humano;
+      const c = CLASSES[e.classe] || CLASSES.guerreiro;
+      p(`— ${e.nome} —`, 'local');
+      p(`${r.emoji} ${r.nome} · ${c.emoji} ${c.nome} · Nv ${e.nivel}`, 'sistema');
+      p(`HP ${e.hp}/${e.hpMax}`, 'hp-info');
+      if (e.manaMax > 0) p(`MP ${e.mana}/${e.manaMax}`, 'mana');
+      p(`ATK ${atkTotal(e)} | DEF ${defTotal(e)}`, 'stats');
+      p(`Moedas: ${e.moedas}`, 'sistema');
+      for (const slot of SLOTS_EQUIP) {
+        const id = e.equipado[slot];
+        if (id) {
+          const enc = e.encantamentos?.[slot] ? ` ${ENCANTAMENTOS[e.encantamentos[slot]].emoji}` : '';
+          p(`  ${slot}: ${ITENS[id].nome}${enc}`, tipoRaridade(ITENS[id]));
+        }
+      }
+      break;
+    }
+
+    case 'falar': {
+      if (!local.npc) { p('Ninguém.', 'erro'); break; }
+      p(`${local.npc.nome}:`, 'npc');
+      local.npc.falas.forEach((f) => p('  ' + f, 'fala'));
+      break;
+    }
+
+    case 'loja': {
+      if (!local.loja) { p('Sem loja.', 'erro'); break; }
+      p(`— ${local.loja.nome} —`, 'loja-titulo');
+      for (const id of local.loja.itens) {
+        const it = ITENS[id]; if (!it) continue;
+        p(`  ${it.nome}${raridadeTag(it)} — ${it.preco}◈`, tipoRaridade(it));
+      }
+      break;
+    }
+
+    case 'comprar': {
+      if (!local.loja) { p('Sem loja.', 'erro'); break; }
+      const item = acharItem(arg);
+      if (!item || !local.loja.itens.includes(item.id)) { p('Não vende.', 'erro'); break; }
+      if (e.moedas < item.preco) { p('Sem moedas.', 'erro'); break; }
+      e.moedas -= item.preco; addItem(e, item.id, 1);
+      p(`Comprou ${item.nome}.`, 'compra');
+      progredir(e, 'comprar', 'qualquer', p);
+      break;
+    }
+
+    case 'vender': {
+      if (!local.loja) { p('Sem loja.', 'erro'); break; }
+      const item = acharItem(arg);
+      if (!item || !qtdItem(e, item.id)) { p('Não tem.', 'erro'); break; }
+      const v = precoVenda(item);
+      remItem(e, item.id, 1);
+      for (const s of SLOTS_EQUIP) if (e.equipado[s] === item.id && !qtdItem(e, item.id)) { e.equipado[s] = null; e.encantamentos[s] = null; }
+      e.moedas += v;
+      p(`Vendeu ${item.nome} por ${v}◈.`, 'venda');
+      break;
+    }
+
+    case 'quests': case 'quest': {
+      p('Ativas:', 'titulo');
+      if (!e.questsAtivas.length) p('  (nenhuma)', 'sistema');
+      for (const qid of e.questsAtivas) {
+        const q = QUESTS[qid];
+        p(`  ${q.titulo} — ${Math.min(e.progresso[qid] || 0, q.objetivo.qtd)}/${q.objetivo.qtd}`, 'quest-ativa');
+      }
+      p('Disponíveis:', 'titulo');
+      const disp = Object.values(QUESTS).filter((q) => !e.questsAtivas.includes(q.id) && !e.questsCompletas.includes(q.id));
+      if (!disp.length) p('  (nenhuma)', 'sistema');
+      disp.forEach((q) => p(`  ${q.titulo}`, 'quest-disp'));
+      break;
+    }
+
+    case 'aceitar': {
+      const a = normalizar(arg);
+      if (!a) { p('Aceitar qual?', 'erro'); break; }
+      const q = Object.values(QUESTS).find((x) => normalizar(x.titulo).includes(a));
+      if (!q) { p('Não achou.', 'erro'); break; }
+      if (e.questsCompletas.includes(q.id) || e.questsAtivas.includes(q.id)) { p('Já tem.', 'erro'); break; }
+      e.questsAtivas.push(q.id);
+      p(`Aceitou: "${q.titulo}".`, 'quest-aceita');
+      checarQuests(e, p);
+      break;
+    }
+
+    case 'sair':
+      p('Até a próxima aventura!', 'despedida');
+      break;
+
+    default:
+      p(`Comando desconhecido: "${partes[0]}".`, 'erro');
+  }
+
+  e.atualizadoEm = Date.now();
+  return { estado: e, linhas };
+}
+
+export function resumoSlot(estado) {
+  if (!estado) return null;
+  const r = RACAS[estado.raca] || RACAS.humano;
+  const c = CLASSES[estado.classe] || CLASSES.guerreiro;
+  return {
+    nome: estado.nome, nivel: estado.nivel,
+    local: MUNDO[estado.local]?.nome || '???',
+    atualizadoEm: estado.atualizadoEm || 0,
+    hp: estado.hp, hpMax: estado.hpMax,
+    raca: r.nome, classe: c.nome,
+    emoji: `${r.emoji}${c.emoji}`,
+  };
+}

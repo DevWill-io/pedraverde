@@ -1,0 +1,25 @@
+{
+  "name": "Pedraverde — RPG de Texto",
+  "short_name": "Pedraverde",
+  "description": "RPG de texto medieval jogável no navegador.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b0f14",
+  "theme_color": "#0b0f14",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' fill='%230b0f14'/><text x='50%25' y='58%25' font-size='340' text-anchor='middle' fill='%238fd3ff' font-family='monospace'>⚔</text></svg>",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' fill='%230b0f14'/><text x='50%25' y='58%25' font-size='340' text-anchor='middle' fill='%238fd3ff' font-family='monospace'>⚔</text></svg>",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

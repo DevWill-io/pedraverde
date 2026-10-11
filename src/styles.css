@@ -1,0 +1,1933 @@
+/* src/styles.css */
+:root {
+  --bg: #0b0f14;
+  --bg-2: #10161d;
+  --bg-3: #161e27;
+  --borda: #22303d;
+  --texto: #c9d6e2;
+  --texto-fraco: #6f8296;
+
+  --azul: #8fd3ff;
+  --amarelo: #ffd166;
+  --vermelho: #ff6b6b;
+  --verde: #7ee787;
+  --roxo: #c792ea;
+
+  --mono: 'SFMono-Regular', 'JetBrains Mono', 'Fira Code', Consolas, 'Courier New', monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--texto);
+  font-family: var(--mono);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+button,
+input {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* ------------------------------------------------------------------ */
+/* Telas                                                               */
+/* ------------------------------------------------------------------ */
+
+.tela {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.tela.centro {
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.painel {
+  width: 100%;
+  max-width: 460px;
+  background: var(--bg-2);
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  padding: 26px 22px;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+}
+
+.painel.slots {
+  max-width: 760px;
+}
+
+.titulo {
+  margin: 0;
+  font-size: 30px;
+  letter-spacing: 6px;
+  color: var(--azul);
+  text-align: center;
+  text-shadow: 0 0 16px rgba(143, 211, 255, 0.35);
+}
+
+.titulo-menor {
+  margin: 0 0 4px;
+  font-size: 20px;
+  letter-spacing: 2px;
+  color: var(--azul);
+  text-align: center;
+}
+
+.subtitulo {
+  margin: 4px 0 20px;
+  text-align: center;
+  color: var(--texto-fraco);
+  font-size: 13px;
+  letter-spacing: 1px;
+}
+
+.carregando {
+  color: var(--texto-fraco);
+  letter-spacing: 3px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Login                                                               */
+/* ------------------------------------------------------------------ */
+
+.abas {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.aba {
+  flex: 1;
+  padding: 9px;
+  background: transparent;
+  color: var(--texto-fraco);
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: 0.15s;
+}
+
+.aba:hover {
+  color: var(--texto);
+}
+
+.aba.ativa {
+  background: var(--bg-3);
+  color: var(--azul);
+  border-color: var(--azul);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--texto-fraco);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.form input {
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  color: var(--texto);
+  outline: none;
+}
+
+.form input:focus {
+  border-color: var(--azul);
+  box-shadow: 0 0 0 3px rgba(143, 211, 255, 0.12);
+}
+
+.botao {
+  padding: 10px 14px;
+  background: var(--bg-3);
+  color: var(--texto);
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: 0.15s;
+}
+
+.botao:hover:not(:disabled) {
+  border-color: var(--azul);
+  color: var(--azul);
+}
+
+.botao:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.botao.primario {
+  background: rgba(143, 211, 255, 0.1);
+  border-color: rgba(143, 211, 255, 0.5);
+  color: var(--azul);
+}
+
+.botao.primario:hover:not(:disabled) {
+  background: rgba(143, 211, 255, 0.18);
+}
+
+.divisor {
+  text-align: center;
+  color: var(--texto-fraco);
+  font-size: 12px;
+  margin: 18px 0 12px;
+  letter-spacing: 2px;
+}
+
+.erro {
+  color: var(--vermelho);
+  font-size: 13px;
+  border: 1px solid rgba(255, 107, 107, 0.35);
+  background: rgba(255, 107, 107, 0.08);
+  padding: 8px 10px;
+  border-radius: 6px;
+}
+
+.aviso {
+  margin-top: 16px;
+  font-size: 12px;
+  color: var(--amarelo);
+  text-align: center;
+}
+
+.painel .botao + .botao {
+  margin-top: 8px;
+  width: 100%;
+}
+
+/* ------------------------------------------------------------------ */
+/* Slots                                                               */
+/* ------------------------------------------------------------------ */
+
+.lista-slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.card-slot {
+  background: var(--bg);
+  border: 1px dashed var(--borda);
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 190px;
+}
+
+.card-slot.ocupado {
+  border-style: solid;
+  border-color: rgba(143, 211, 255, 0.35);
+}
+
+.slot-cabecalho {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.slot-num {
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--texto-fraco);
+  text-transform: uppercase;
+}
+
+.link-perigo {
+  background: none;
+  border: none;
+  color: var(--vermelho);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0;
+  opacity: 0.7;
+}
+
+.link-perigo:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+.slot-nome {
+  font-size: 18px;
+  color: var(--amarelo);
+}
+
+.slot-info {
+  font-size: 12px;
+  color: var(--texto-fraco);
+}
+
+.slot-data {
+  font-size: 11px;
+  color: var(--texto-fraco);
+  opacity: 0.7;
+  margin-bottom: auto;
+}
+
+.slot-vazio {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--texto-fraco);
+  font-style: italic;
+  opacity: 0.6;
+}
+
+.rodape-painel {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  justify-content: flex-end;
+}
+
+/* ------------------------------------------------------------------ */
+/* Jogo                                                                */
+/* ------------------------------------------------------------------ */
+
+.jogo {
+  max-width: 960px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 10px;
+  gap: 8px;
+}
+
+.status-bar {
+  border: 1px solid var(--borda);
+  background: var(--bg-2);
+  border-radius: 8px;
+  padding: 10px 12px;
+  flex-shrink: 0;
+}
+
+.status-linha {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  align-items: center;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.tag {
+  color: var(--texto-fraco);
+  white-space: nowrap;
+}
+
+.tag.nome {
+  color: var(--azul);
+  font-weight: bold;
+}
+
+.tag.moeda {
+  color: var(--amarelo);
+}
+
+.tag.local {
+  margin-left: auto;
+  color: var(--roxo);
+}
+
+.barras {
+  display: flex;
+  gap: 10px;
+}
+
+.barra {
+  position: relative;
+  flex: 1;
+  height: 20px;
+  background: var(--bg);
+  border: 1px solid var(--borda);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.barra-preenchimento {
+  position: absolute;
+  inset: 0 auto 0 0;
+  transition: width 0.35s ease;
+}
+
+.barra-preenchimento.hp {
+  background: linear-gradient(90deg, #b83232, #ff6b6b);
+}
+
+.barra-preenchimento.xp {
+  background: linear-gradient(90deg, #2a6ea8, #8fd3ff);
+}
+
+.barra-texto {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+
+.faixa-combate {
+  margin-top: 8px;
+  padding: 5px 10px;
+  background: rgba(255, 107, 107, 0.12);
+  border: 1px solid rgba(255, 107, 107, 0.4);
+  border-radius: 5px;
+  color: var(--vermelho);
+  font-size: 12px;
+  letter-spacing: 1px;
+  animation: pulsar 1.6s infinite;
+}
+
+@keyframes pulsar {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* Log */
+
+.log {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--bg-2);
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  padding: 14px;
+  scroll-behavior: smooth;
+  min-height: 180px;
+}
+
+.log::-webkit-scrollbar {
+  width: 8px;
+}
+
+.log::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.log::-webkit-scrollbar-thumb {
+  background: var(--borda);
+  border-radius: 4px;
+}
+
+.linha {
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-bottom: 3px;
+  animation: aparecer 0.18s ease;
+}
+
+@keyframes aparecer {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: none; }
+}
+
+.linha.jogador { color: var(--azul); }
+.linha.sistema { color: var(--texto); }
+.linha.destaque { color: var(--amarelo); }
+.linha.combate { color: var(--vermelho); }
+.linha.sucesso { color: var(--verde); }
+.linha.erro { color: var(--vermelho); opacity: 0.85; }
+
+/* Atalhos */
+
+.atalhos {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  flex-shrink: 0;
+  padding-bottom: 2px;
+}
+
+.chip {
+  padding: 5px 11px;
+  background: var(--bg-3);
+  border: 1px solid var(--borda);
+  border-radius: 999px;
+  color: var(--texto-fraco);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: 0.15s;
+}
+
+.chip:hover {
+  color: var(--azul);
+  border-color: var(--azul);
+}
+
+/* Entrada */
+
+.entrada {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background: var(--bg-2);
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  padding: 8px 10px;
+  flex-shrink: 0;
+}
+
+.entrada:focus-within {
+  border-color: var(--azul);
+  box-shadow: 0 0 0 3px rgba(143, 211, 255, 0.1);
+}
+
+.prompt {
+  color: var(--verde);
+  font-weight: bold;
+}
+
+.entrada input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--texto);
+  min-width: 0;
+}
+
+.entrada input::placeholder {
+  color: var(--texto-fraco);
+  opacity: 0.6;
+}
+
+.entrada .botao {
+  padding: 7px 14px;
+}
+
+/* Barra de botões */
+
+.barra-botoes {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.barra-botoes button {
+  flex: 1;
+  padding: 9px 6px;
+  background: var(--bg-3);
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  color: var(--texto-fraco);
+  font-size: 12px;
+  cursor: pointer;
+  transition: 0.15s;
+}
+
+.barra-botoes button:hover:not(:disabled) {
+  color: var(--azul);
+  border-color: var(--azul);
+}
+
+.barra-botoes button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Toast */
+
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-3);
+  border: 1px solid var(--azul);
+  color: var(--azul);
+  padding: 9px 20px;
+  border-radius: 999px;
+  font-size: 13px;
+  box-shadow: 0 6px 30px rgba(0, 0, 0, 0.6);
+  animation: subir 0.25s ease;
+  z-index: 50;
+}
+
+@keyframes subir {
+  from { opacity: 0; transform: translate(-50%, 10px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* ------------------------------------------------------------------ */
+/* Responsivo                                                          */
+/* ------------------------------------------------------------------ */
+
+@media (max-width: 640px) {
+  body {
+    font-size: 14px;
+  }
+
+  .jogo {
+    padding: 6px;
+    gap: 6px;
+  }
+
+  .status-linha {
+    font-size: 12px;
+    gap: 4px 10px;
+  }
+
+  .tag.local {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .barras {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .painel {
+    padding: 20px 16px;
+  }
+
+  .titulo {
+    font-size: 24px;
+    letter-spacing: 4px;
+  }
+
+  .lista-slots {
+    grid-template-columns: 1fr;
+  }
+
+  .barra-botoes button {
+    font-size: 11px;
+    padding: 10px 2px;
+  }
+
+  .entrada .botao {
+    padding: 7px 10px;
+  }
+}
+
+@media (min-width: 1000px) {
+  .log {
+    font-size: 15px;
+  }
+}
+
+/* Combate tático */
+.combate-linha {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+
+.combate-turno {
+  color: var(--texto-fraco);
+  text-transform: uppercase;
+}
+
+.combate-nome {
+  color: var(--vermelho);
+  font-weight: bold;
+  flex: 1;
+}
+
+.combate-hp {
+  color: var(--amarelo);
+}
+
+.barra-inimigo {
+  height: 10px;
+  margin-bottom: 6px;
+}
+
+.barra-preenchimento.ini {
+  background: linear-gradient(90deg, #8a1c1c, #ff6b6b);
+}
+
+.combate-efeitos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.efeito {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(143, 211, 255, 0.1);
+  border: 1px solid rgba(143, 211, 255, 0.35);
+  color: var(--azul);
+}
+
+.efeito-ruim {
+  background: rgba(255, 107, 107, 0.12);
+  border-color: rgba(255, 107, 107, 0.4);
+  color: var(--vermelho);
+}
+
+.chip-combate {
+  border-color: rgba(255, 107, 107, 0.4);
+  color: var(--vermelho);
+  font-weight: bold;
+}
+
+.chip-combate:hover {
+  background: rgba(255, 107, 107, 0.12);
+  color: var(--vermelho);
+  border-color: var(--vermelho);
+}
+
+/* ================================================================== */
+/* BLOCO 3 — Polimento visual                                          */
+/* ================================================================== */
+
+/* Reestrutura cada linha: prefixo à esquerda + texto */
+.linha {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.linha .prefixo {
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+  font-weight: bold;
+  opacity: 0.9;
+  user-select: none;
+}
+
+.linha .texto {
+  flex: 1;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* --- Cores do prefixo por tipo --- */
+.linha.jogador .prefixo { color: var(--azul); }
+.linha.local .prefixo { color: var(--amarelo); }
+.linha.titulo .prefixo { color: var(--amarelo); }
+.linha.destaque .prefixo { color: var(--amarelo); }
+.linha.sucesso .prefixo { color: var(--verde); }
+.linha.erro .prefixo { color: var(--vermelho); }
+.linha.aviso .prefixo { color: var(--amarelo); }
+.linha.npc .prefixo { color: var(--roxo); }
+.linha.combate-chefe .prefixo { color: var(--vermelho); }
+.linha.dano-causado .prefixo { color: var(--amarelo); }
+.linha.dano-critico .prefixo { color: var(--laranja, #ff9f43); }
+.linha.dano-recebido .prefixo { color: var(--vermelho); }
+.linha.cura .prefixo { color: var(--verde); }
+.linha.defesa .prefixo { color: var(--azul); }
+.linha.esquiva .prefixo { color: var(--azul); }
+.linha['critico-pronto'] .prefixo { color: var(--amarelo); }
+.linha.fuga .prefixo { color: var(--verde); }
+.linha.morte .prefixo { color: var(--vermelho); }
+.linha.vitoria .prefixo { color: var(--verde); }
+.linha.xp .prefixo { color: var(--azul); }
+.linha.loot .prefixo { color: var(--roxo); }
+.linha.quest .prefixo { color: var(--verde); }
+.linha['quest-aceita'] .prefixo { color: var(--azul); }
+.linha['quest-feita'] .prefixo { color: var(--verde); }
+.linha.pickup .prefixo { color: var(--amarelo); }
+.linha.equipar .prefixo { color: var(--azul); }
+.linha.compra .prefixo { color: var(--amarelo); }
+.linha.venda .prefixo { color: var(--amarelo); }
+.linha['loja-titulo'] .prefixo { color: var(--amarelo); }
+
+/* --- Cores de raridade --- */
+.linha.raridade-comum { color: var(--texto); }
+.linha.raridade-incomum { color: var(--verde); }
+.linha.raridade-raro { color: var(--azul); }
+.linha.raridade-epico {
+  color: var(--roxo);
+  text-shadow: 0 0 6px rgba(199, 146, 234, 0.35);
+}
+.linha.raridade-lendario {
+  color: var(--amarelo);
+  text-shadow: 0 0 8px rgba(255, 209, 102, 0.55);
+  font-weight: bold;
+}
+
+/* --- Cor do texto por tipo --- */
+.linha.jogador .texto { color: var(--azul); }
+.linha.local .texto { color: var(--amarelo); font-weight: bold; }
+.linha.titulo .texto { color: var(--amarelo); font-weight: bold; }
+.linha.destaque .texto { color: var(--amarelo); }
+.linha.sucesso .texto { color: var(--verde); }
+.linha.erro .texto { color: var(--vermelho); }
+.linha.aviso .texto { color: var(--amarelo); font-style: italic; }
+.linha.npc .texto { color: var(--roxo); }
+.linha.fala .texto { color: var(--texto); font-style: italic; opacity: 0.9; }
+.linha.atmosfera .texto { color: var(--texto-fraco); font-style: italic; }
+.linha.combate .texto { color: var(--vermelho); }
+.linha.combate-turno .texto { color: var(--vermelho); opacity: 0.7; text-transform: uppercase; }
+.linha.combate-inicio .texto { color: var(--vermelho); font-weight: bold; }
+.linha.combate-chefe .texto {
+  color: var(--amarelo);
+  font-weight: bold;
+  animation: pulsar 1.2s infinite;
+}
+.linha.dano-causado .texto { color: var(--amarelo); }
+.linha.dano-critico .texto { color: var(--laranja, #ff9f43); font-weight: bold; }
+.linha.dano-recebido .texto { color: var(--vermelho); }
+.linha.cura .texto { color: var(--verde); }
+.linha.defesa .texto { color: var(--azul); }
+.linha.esquiva .texto { color: var(--azul); }
+.linha['critico-pronto'] .texto { color: var(--amarelo); font-weight: bold; }
+.linha.fuga .texto { color: var(--verde); }
+.linha.morte .texto {
+  color: var(--vermelho);
+  font-weight: bold;
+  animation: aparecer 0.4s ease;
+}
+.linha.vitoria .texto { color: var(--verde); font-weight: bold; }
+.linha.xp .texto { color: var(--azul); }
+.linha.loot .texto { color: var(--roxo); }
+.linha.quest .texto { color: var(--verde); font-weight: bold; }
+.linha['quest-aceita'] .texto { color: var(--azul); }
+.linha['quest-ativa'] .texto { color: var(--azul); }
+.linha['quest-disp'] .texto { color: var(--texto-fraco); }
+.linha['quest-feita'] .texto { color: var(--verde); }
+.linha.pickup .texto { color: var(--amarelo); }
+.linha.equipar .texto { color: var(--azul); }
+.linha.compra .texto { color: var(--amarelo); }
+.linha.venda .texto { color: var(--amarelo); }
+.linha['loja-titulo'] .texto { color: var(--amarelo); font-weight: bold; }
+.linha.saidas .texto { color: var(--texto-fraco); }
+.linha['loja-info'] .texto { color: var(--texto-fraco); }
+.linha['hp-info'] .texto { color: var(--verde); }
+.linha.stats .texto { color: var(--azul); }
+.linha.despedida .texto { color: var(--amarelo); font-style: italic; }
+
+/* --- Level up com efeito --- */
+.linha.level-up .texto {
+  color: var(--amarelo);
+  font-weight: bold;
+  text-shadow: 0 0 10px rgba(255, 209, 102, 0.7);
+  animation: brilhar 1.2s ease;
+}
+
+@keyframes brilhar {
+  0% { transform: scale(1); text-shadow: 0 0 4px rgba(255, 209, 102, 0.3); }
+  40% { transform: scale(1.03); text-shadow: 0 0 20px rgba(255, 209, 102, 1); }
+  100% { transform: scale(1); text-shadow: 0 0 6px rgba(255, 209, 102, 0.5); }
+}
+
+/* --- Barra de HP dinâmica (verde / amarelo / vermelho) --- */
+.barra-preenchimento.hp-ok {
+  background: linear-gradient(90deg, #2d7a3a, #7ee787);
+}
+.barra-preenchimento.hp-medio {
+  background: linear-gradient(90deg, #a8751c, #ffd166);
+}
+.barra-preenchimento.hp-critico {
+  background: linear-gradient(90deg, #8a1c1c, #ff6b6b);
+  animation: pulsar 1s infinite;
+}
+
+/* ================================================================== */
+/* BLOCO 4 — Mana, Magias e Criação de Personagem                     */
+/* ================================================================== */
+
+/* --- Barra de mana --- */
+.barra-preenchimento.mana {
+  background: linear-gradient(90deg, #2a4a8a, #8fb8ff);
+}
+.linha.mana .texto { color: #8fb8ff; }
+
+/* --- Magias no log --- */
+.linha.magia .texto { color: #8fb8ff; font-weight: bold; }
+.linha['dano-magico'] .texto { color: #c792ea; font-weight: bold; }
+.linha.buff .texto { color: var(--amarelo); }
+.linha['magia-disponivel'] .texto { color: #8fb8ff; }
+.linha['magia-indisponivel'] .texto { color: var(--texto-fraco); opacity: 0.6; }
+
+/* --- Chip de magia em combate --- */
+.chip-magia {
+  border-color: rgba(143, 184, 255, 0.6);
+  color: #8fb8ff;
+  font-weight: bold;
+  background: rgba(143, 184, 255, 0.08);
+}
+.chip-magia:hover {
+  background: rgba(143, 184, 255, 0.18);
+  color: #b0ccff;
+}
+
+/* --- Painel de magias em combate --- */
+.painel-magias {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+  padding: 10px;
+  background: var(--bg-2);
+  border: 1px solid rgba(143, 184, 255, 0.4);
+  border-radius: 8px;
+  animation: aparecer 0.2s ease;
+}
+
+.chip-magia-op {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--bg-3);
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  color: var(--texto);
+  cursor: pointer;
+  transition: 0.15s;
+  text-align: left;
+  font-family: inherit;
+  font-size: 13px;
+}
+.chip-magia-op:hover:not(:disabled) {
+  border-color: #8fb8ff;
+  color: #b0ccff;
+  background: rgba(143, 184, 255, 0.08);
+}
+.chip-magia-op:disabled,
+.chip-magia-op-off {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.cm-emoji { font-size: 18px; }
+.cm-nome { flex: 1; }
+.cm-custo {
+  color: #8fb8ff;
+  font-size: 11px;
+  padding: 2px 6px;
+  border: 1px solid rgba(143, 184, 255, 0.4);
+  border-radius: 999px;
+}
+
+/* --- Efeito de buff no banner de combate --- */
+.efeito-buff {
+  background: rgba(255, 209, 102, 0.12);
+  border-color: rgba(255, 209, 102, 0.4);
+  color: var(--amarelo);
+}
+
+/* --- Tela de criação de personagem --- */
+.tela-criacao {
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.painel-criacao {
+  max-width: 720px;
+  width: 100%;
+}
+
+.form-criacao {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.campo-nome {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--texto-fraco);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.campo-nome input {
+  padding: 12px 14px;
+  background: var(--bg);
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  color: var(--texto);
+  outline: none;
+  font-size: 16px;
+}
+
+/* ================================================================== */
+/* BLOCO 4 — TELA DE CRIAÇÃO (versão reforçada, sem cortes)           */
+/* ================================================================== */
+
+.tela.tela-criacao {
+  display: block;              /* não é flex column */
+  padding: 16px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+.painel-criacao {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto 24px;         /* espaço embaixo pro conteúdo não colar */
+  background: var(--bg-2);
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  padding: 22px 20px;
+  box-sizing: border-box;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+}
+
+.form-criacao {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 16px;
+}
+
+/* --- Nome --- */
+.campo-nome {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--texto-fraco);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.campo-nome input {
+  padding: 12px 14px;
+  background: var(--bg);
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  color: var(--texto);
+  outline: none;
+  font-size: 16px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.campo-nome input:focus {
+  border-color: var(--azul);
+  box-shadow: 0 0 0 3px rgba(143, 211, 255, 0.12);
+}
+
+/* --- Seções (Raça / Classe) --- */
+.secao-criacao {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;                /* permite shrink em flex parent */
+}
+
+.secao-titulo {
+  font-size: 11px;
+  color: var(--texto-fraco);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--borda);
+  padding-bottom: 4px;
+}
+
+/* --- Grid de opções (raças / classes) --- */
+.grade-opcoes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+
+/* --- Card de cada opção --- */
+.card-opcao {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  padding: 12px 8px;
+  background: var(--bg);
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--texto-fraco);
+  font-family: inherit;
+  text-align: center;
+  transition: 0.15s;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  overflow: hidden;
+}
+
+.card-opcao:hover {
+  border-color: rgba(143, 211, 255, 0.4);
+  color: var(--texto);
+}
+
+.card-opcao.ativa {
+  border-color: var(--azul);
+  background: rgba(143, 211, 255, 0.08);
+  color: var(--azul);
+  box-shadow: 0 0 0 2px rgba(143, 211, 255, 0.15);
+}
+
+.opcao-emoji {
+  font-size: 26px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.opcao-nome {
+  font-size: 13px;
+  font-weight: bold;
+  color: inherit;
+  line-height: 1.2;
+  word-break: break-word;
+  width: 100%;
+}
+
+.opcao-desc {
+  font-size: 10px;
+  opacity: 0.7;
+  line-height: 1.35;
+  word-break: break-word;
+  width: 100%;
+  /* Limita a 3 linhas pra evitar cards de tamanhos diferentes */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.opcao-bonus {
+  font-size: 10px;
+  color: var(--verde);
+  margin-top: 2px;
+  letter-spacing: 0.3px;
+  word-break: break-word;
+  width: 100%;
+}
+
+.opcao-magias {
+  font-size: 13px;
+  letter-spacing: 2px;
+  margin-top: 2px;
+  width: 100%;
+}
+
+/* --- Preview de stats --- */
+.preview-stats {
+  background: var(--bg);
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.preview-titulo {
+  font-size: 11px;
+  color: var(--texto-fraco);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  text-align: center;
+}
+
+.preview-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.p-label {
+  font-size: 10px;
+  color: var(--texto-fraco);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.p-valor {
+  font-size: 20px;
+  font-weight: bold;
+  line-height: 1;
+}
+.p-hp { color: var(--vermelho); }
+.p-mana { color: #8fb8ff; }
+.p-atk { color: var(--amarelo); }
+.p-def { color: var(--azul); }
+
+.preview-combo {
+  text-align: center;
+  color: var(--texto-fraco);
+  font-size: 13px;
+  letter-spacing: 1px;
+  padding-top: 8px;
+  border-top: 1px solid var(--borda);
+  word-break: break-word;
+}
+
+/* --- Botões inferiores --- */
+.botoes-criacao {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.botoes-criacao .botao {
+  min-width: 120px;
+  flex-shrink: 0;
+}
+
+/* ================================================================== */
+/* RESPONSIVO — telas pequenas                                         */
+/* ================================================================== */
+
+@media (max-width: 640px) {
+  .tela.tela-criacao {
+    padding: 10px;
+  }
+
+  .painel-criacao {
+    padding: 16px 12px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+  }
+
+  .grade-opcoes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .card-opcao {
+    padding: 10px 6px;
+    border-radius: 6px;
+  }
+
+  .opcao-emoji { font-size: 22px; }
+  .opcao-nome { font-size: 12px; }
+  .opcao-desc { font-size: 9px; -webkit-line-clamp: 3; }
+  .opcao-bonus { font-size: 9px; }
+
+  .preview-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+
+  .p-valor { font-size: 18px; }
+
+  .botoes-criacao {
+    justify-content: stretch;
+  }
+  .botoes-criacao .botao {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+/* Telas MUITO estreitas (alguns Androids antigos) */
+@media (max-width: 380px) {
+  .grade-opcoes {
+    grid-template-columns: 1fr;
+  }
+
+  .opcao-desc { -webkit-line-clamp: 2; }
+
+  .preview-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ================================================================== */
+/* BLOCO 5 — Eventos e Status Effects                                  */
+/* ================================================================== */
+
+/* --- Eventos aleatórios --- */
+.linha['evento-bom'] .prefixo { color: var(--verde); }
+.linha['evento-bom'] .texto { color: var(--verde); font-weight: bold; }
+.linha['evento-ruim'] .prefixo { color: var(--vermelho); }
+.linha['evento-ruim'] .texto { color: var(--vermelho); }
+.linha['evento-neutro'] .prefixo { color: var(--texto-fraco); }
+.linha['evento-neutro'] .texto { color: var(--texto-fraco); font-style: italic; }
+.linha['evento-epico'] .prefixo { color: var(--roxo); }
+.linha['evento-epico'] .texto {
+  color: var(--roxo);
+  font-weight: bold;
+  text-shadow: 0 0 8px rgba(199, 146, 234, 0.5);
+}
+
+/* --- Dano por status --- */
+.linha['dano-status'] .prefixo { color: var(--verde); }
+.linha['dano-status'] .texto { color: #7ee787; font-weight: bold; }
+
+/* --- Faixa de efeitos fora de combate --- */
+.faixa-efeitos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--borda);
+}
+
+/* --- Cores específicas por efeito --- */
+.efeito-veneno {
+  background: rgba(126, 231, 135, 0.12);
+  border-color: rgba(126, 231, 135, 0.5);
+  color: #7ee787;
+}
+.efeito-fogo {
+  background: rgba(255, 159, 67, 0.12);
+  border-color: rgba(255, 159, 67, 0.5);
+  color: #ff9f43;
+}
+.efeito-sangue {
+  background: rgba(255, 107, 107, 0.12);
+  border-color: rgba(255, 107, 107, 0.5);
+  color: var(--vermelho);
+}
+.efeito-cura {
+  background: rgba(126, 231, 135, 0.12);
+  border-color: rgba(126, 231, 135, 0.5);
+  color: #7ee787;
+}
+.efeito-buff {
+  background: rgba(255, 209, 102, 0.12);
+  border-color: rgba(255, 209, 102, 0.5);
+  color: var(--amarelo);
+}
+.efeito-debuff {
+  background: rgba(199, 146, 234, 0.12);
+  border-color: rgba(199, 146, 234, 0.5);
+  color: var(--roxo);
+}
+
+/* ================================================================== */
+/* BLOCO 6 — Arena, Bestiário e Diário                                 */
+/* ================================================================== */
+
+/* --- Arena no log --- */
+.linha.arena .prefixo { color: #ff9f43; }
+.linha.arena .texto { color: #ff9f43; font-weight: bold; }
+
+/* --- Bestiário --- */
+.linha.bestiario .prefixo { color: var(--roxo); }
+.linha.bestiario .texto { color: var(--roxo); font-weight: bold; }
+
+/* --- Tag de arena no cabeçalho --- */
+.tag-arena {
+  margin-left: auto;
+  color: #ff9f43;
+  font-weight: bold;
+  text-shadow: 0 0 6px rgba(255, 159, 67, 0.5);
+  animation: pulsar 2s infinite;
+}
+
+/* --- Faixa de combate na arena (borda laranja) --- */
+.faixa-combate.faixa-arena {
+  background: rgba(255, 159, 67, 0.1);
+  border-color: rgba(255, 159, 67, 0.5);
+}
+.faixa-combate.faixa-arena .combate-nome { color: #ff9f43; }
+.faixa-combate.faixa-arena .combate-turno { color: #ff9f43; opacity: 0.8; }
+
+/* --- Chips de arena --- */
+.chip-arena {
+  border-color: rgba(255, 159, 67, 0.5);
+  color: #ff9f43;
+  background: rgba(255, 159, 67, 0.08);
+  font-weight: bold;
+}
+.chip-arena:hover {
+  background: rgba(255, 159, 67, 0.18);
+  color: #ffb870;
+  border-color: #ff9f43;
+}
+
+/* ================================================================== */
+/* MAPA + REGIÕES                                                      */
+/* ================================================================== */
+
+.linha['mapa-regiao'] .prefixo { color: #ffd166; }
+.linha['mapa-regiao'] .texto {
+  color: #ffd166;
+  font-weight: bold;
+  letter-spacing: 1px;
+  margin-top: 6px;
+}
+
+.linha['mapa-local'] .texto { color: var(--texto); }
+.linha['mapa-atual'] .prefixo { color: #7ee787; }
+.linha['mapa-atual'] .texto {
+  color: #7ee787;
+  font-weight: bold;
+  background: rgba(126, 231, 135, 0.08);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.linha['mapa-bloqueado'] .prefixo { color: #ff6b6b; }
+.linha['mapa-bloqueado'] .texto { color: #ff6b6b; opacity: 0.75; }
+.linha['mapa-saida'] .texto { color: var(--texto-fraco); }
+
+/* ================================================================== */
+/* CRAFTING + ENCANTAMENTO                                             */
+/* ================================================================== */
+
+.linha.craft .prefixo { color: #ff9f43; }
+.linha.craft .texto { color: #ff9f43; font-weight: bold; }
+
+.linha['receita-ok'] .texto { color: var(--verde); }
+.linha['receita-bloq'] .texto { color: var(--texto-fraco); opacity: 0.65; }
+
+.linha.encantar .prefixo { color: #c792ea; }
+.linha.encantar .texto {
+  color: #c792ea;
+  font-weight: bold;
+  text-shadow: 0 0 8px rgba(199, 146, 234, 0.5);
+}
+.linha['encantar-ok'] .texto { color: var(--verde); }
+.linha['encantar-bloq'] .texto { color: var(--texto-fraco); opacity: 0.65; }
+
+.tag-enc {
+  margin-left: 4px;
+  font-size: 12px;
+  filter: drop-shadow(0 0 4px currentColor);
+}
+
+/* ================================================================== */
+/* ITENS — raridade MITICO                                             */
+/* ================================================================== */
+
+.linha.raridade-mitico {
+  color: #ff9f43;
+  font-weight: bold;
+  text-shadow: 0 0 10px rgba(255, 159, 67, 0.7), 0 0 20px rgba(255, 159, 67, 0.4);
+  animation: brilhar-mitico 2.5s ease infinite;
+}
+
+.linha.raridade-mitico .prefixo { color: #ff9f43; }
+
+@keyframes brilhar-mitico {
+  0%, 100% { text-shadow: 0 0 10px rgba(255, 159, 67, 0.7); }
+  50%      { text-shadow: 0 0 20px rgba(255, 159, 67, 1), 0 0 30px rgba(255, 209, 102, 0.8); }
+}
+
+/* ================================================================== */
+/* TUTORIAL                                                            */
+/* ================================================================== */
+
+.tela.tutorial {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+/* Cabeçalho */
+.tutorial-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--borda);
+  flex-shrink: 0;
+}
+
+.tutorial-titulo {
+  margin: 0;
+  font-size: 16px;
+  color: var(--azul);
+  letter-spacing: 1px;
+}
+
+.tutorial-header .botao {
+  padding: 6px 14px;
+  font-size: 13px;
+}
+
+/* Abas */
+.tutorial-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 10px;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--borda);
+  overflow-x: auto;
+  flex-shrink: 0;
+  scrollbar-width: thin;
+}
+
+.tutorial-tabs::-webkit-scrollbar { height: 4px; }
+.tutorial-tabs::-webkit-scrollbar-thumb { background: var(--borda); border-radius: 2px; }
+
+.tut-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: transparent;
+  border: 1px solid var(--borda);
+  border-radius: 999px;
+  color: var(--texto-fraco);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: 0.15s;
+  flex-shrink: 0;
+}
+
+.tut-tab:hover {
+  color: var(--texto);
+  border-color: rgba(143, 211, 255, 0.4);
+}
+
+.tut-tab.ativa {
+  background: rgba(143, 211, 255, 0.1);
+  border-color: var(--azul);
+  color: var(--azul);
+  font-weight: bold;
+}
+
+.tut-tab-emoji { font-size: 14px; }
+
+/* Conteúdo */
+.tutorial-conteudo {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 22px 40px;
+  line-height: 1.6;
+}
+
+.tut-secao {
+  max-width: 760px;
+  margin: 0 auto;
+  color: var(--texto);
+}
+
+.tut-secao h2 {
+  color: var(--azul);
+  font-size: 20px;
+  margin-top: 0;
+  margin-bottom: 12px;
+  letter-spacing: 1px;
+  border-bottom: 1px solid var(--borda);
+  padding-bottom: 8px;
+}
+
+.tut-secao h3 {
+  color: var(--amarelo);
+  font-size: 15px;
+  margin-top: 22px;
+  margin-bottom: 8px;
+  letter-spacing: 0.5px;
+}
+
+.tut-secao h4 {
+  color: var(--texto);
+  font-size: 14px;
+  margin-top: 16px;
+  margin-bottom: 6px;
+  font-weight: bold;
+}
+
+.tut-secao p {
+  margin: 8px 0;
+  color: var(--texto);
+}
+
+.tut-secao ul,
+.tut-secao ol {
+  margin: 8px 0;
+  padding-left: 22px;
+}
+
+.tut-secao li {
+  margin: 4px 0;
+}
+
+.tut-secao code {
+  background: var(--bg-3);
+  border: 1px solid var(--borda);
+  border-radius: 4px;
+  padding: 2px 6px;
+  color: var(--verde);
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.tut-secao strong { color: var(--amarelo); }
+.tut-secao em { color: var(--roxo); font-style: normal; }
+
+/* Prefixos visuais no texto */
+.tut-prefixo {
+  display: inline-block;
+  width: 20px;
+  text-align: center;
+  font-weight: bold;
+  color: var(--texto-fraco);
+}
+.tut-prefixo.azul { color: var(--azul); }
+.tut-prefixo.verde { color: var(--verde); }
+.tut-prefixo.vermelho { color: var(--vermelho); }
+.tut-prefixo.amarelo { color: var(--amarelo); }
+.tut-prefixo.roxo { color: var(--roxo); }
+
+/* Tabelas */
+.tut-tabela {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10px 0 16px;
+  font-size: 13px;
+  background: var(--bg-2);
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.tut-tabela th {
+  background: var(--bg-3);
+  color: var(--azul);
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--borda);
+}
+
+.tut-tabela td {
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(34, 48, 61, 0.5);
+  color: var(--texto);
+  vertical-align: top;
+}
+
+.tut-tabela tr:last-child td { border-bottom: none; }
+.tut-tabela tr:hover td { background: rgba(143, 211, 255, 0.04); }
+
+/* Caixa de dica */
+.tut-dica {
+  background: rgba(255, 209, 102, 0.08);
+  border: 1px solid rgba(255, 209, 102, 0.4);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-top: 18px;
+  color: var(--texto);
+  font-size: 13px;
+}
+
+.tut-dica strong { color: var(--amarelo); }
+
+/* Botão de tutorial na tela de Login */
+.botao-tutorial {
+  margin-top: 8px !important;
+  border-color: rgba(143, 184, 255, 0.5) !important;
+  color: #8fb8ff !important;
+}
+
+.botao-tutorial:hover {
+  background: rgba(143, 184, 255, 0.12) !important;
+  border-color: #8fb8ff !important;
+}
+
+/* Linha de tutorial no log */
+.linha.tutorial .prefixo { color: #8fb8ff; }
+.linha.tutorial .texto { color: #8fb8ff; font-weight: bold; }
+
+/* Responsivo */
+@media (max-width: 640px) {
+  .tutorial-header {
+    padding: 10px 12px;
+  }
+  .tutorial-titulo {
+    font-size: 13px;
+  }
+  .tutorial-header .botao {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+  .tut-tab-nome {
+    display: none;
+  }
+  .tut-tab {
+    padding: 8px 12px;
+    min-width: 40px;
+    justify-content: center;
+  }
+  .tut-tab-emoji { font-size: 18px; }
+  .tutorial-conteudo {
+    padding: 16px 14px 30px;
+    font-size: 14px;
+  }
+  .tut-secao h2 { font-size: 17px; }
+  .tut-secao h3 { font-size: 14px; }
+  .tut-tabela { font-size: 12px; }
+  .tut-tabela th, .tut-tabela td { padding: 6px 8px; }
+}
+
+/* ================================================================== */
+/* BLOCO FINAL — i18n, sons, PWA, chat, ranking, config, temas         */
+/* ================================================================== */
+
+/* Tema claro */
+html[data-tema="claro"] {
+  --bg: #f5f0e8;
+  --bg-2: #ffffff;
+  --bg-3: #e8e0d2;
+  --borda: #c9bda5;
+  --texto: #2c2416;
+  --texto-fraco: #7a6a4c;
+  --azul: #1e5f9a;
+  --amarelo: #b8860b;
+  --vermelho: #b03333;
+  --verde: #2d7a3a;
+  --roxo: #6b3fa0;
+}
+html[data-tema="claro"] body { background: var(--bg); color: var(--texto); }
+html[data-tema="claro"] .log { background: var(--bg-2); }
+html[data-tema="claro"] .status-bar { background: var(--bg-2); }
+
+/* ---------- MODAL genérico ---------- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 16px;
+  animation: aparecer 0.15s ease;
+}
+.modal {
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  background: var(--bg-2);
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--borda);
+  background: var(--bg-3);
+}
+.modal-header h2 { margin: 0; font-size: 15px; color: var(--azul); letter-spacing: 1px; }
+.modal-fechar { background: none; border: none; color: var(--texto-fraco); font-size: 18px; cursor: pointer; padding: 4px 8px; }
+.modal-fechar:hover { color: var(--vermelho); }
+.modal-corpo { padding: 18px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; }
+.modal-rodape { padding: 12px 18px; border-top: 1px solid var(--borda); text-align: right; }
+
+/* ---------- CONFIG ---------- */
+.config-linha { display: flex; flex-direction: column; gap: 6px; }
+.config-linha label { font-size: 12px; color: var(--texto-fraco); letter-spacing: 1px; text-transform: uppercase; }
+.config-opcoes { display: flex; gap: 6px; flex-wrap: wrap; }
+.btn-opt { flex: 1; min-width: 100px; padding: 8px 12px; background: var(--bg); border: 1px solid var(--borda); border-radius: 6px; color: var(--texto); cursor: pointer; font-family: inherit; font-size: 13px; transition: 0.15s; }
+.btn-opt:hover { border-color: var(--azul); color: var(--azul); }
+.btn-opt.ativa { background: rgba(143, 211, 255, 0.1); border-color: var(--azul); color: var(--azul); font-weight: bold; }
+.btn-toggle { padding: 8px 14px; background: var(--bg); border: 1px solid var(--borda); border-radius: 6px; color: var(--texto-fraco); cursor: pointer; font-family: inherit; font-size: 13px; }
+.btn-toggle.on { background: rgba(126, 231, 135, 0.1); border-color: var(--verde); color: var(--verde); font-weight: bold; }
+.slider { width: 100%; accent-color: var(--azul); }
+.config-instalado { color: var(--verde); font-size: 13px; }
+.config-info { color: var(--texto-fraco); font-size: 12px; font-style: italic; }
+
+/* ---------- CHAT ---------- */
+.modal-chat { max-width: 520px; height: 70vh; }
+.chat-lista { flex: 1; overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; background: var(--bg); }
+.chat-vazio { color: var(--texto-fraco); text-align: center; font-style: italic; padding: 20px; font-size: 13px; }
+.chat-msg { display: flex; flex-direction: column; gap: 2px; padding: 6px 10px; background: var(--bg-2); border-radius: 6px; border-left: 3px solid var(--azul); animation: aparecer 0.2s ease; }
+.chat-nome { font-size: 11px; color: var(--azul); font-weight: bold; letter-spacing: 0.5px; }
+.chat-texto { font-size: 13px; color: var(--texto); word-break: break-word; }
+.chat-form { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--borda); background: var(--bg-3); }
+.chat-form input { flex: 1; padding: 9px 12px; background: var(--bg); border: 1px solid var(--borda); border-radius: 6px; color: var(--texto); outline: none; font-family: inherit; font-size: 13px; }
+.chat-form input:focus { border-color: var(--azul); }
+.chat-form input:disabled { opacity: 0.5; }
+
+/* ---------- RANKING ---------- */
+.ranking-lista { padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; max-height: 60vh; }
+.ranking-vazio { color: var(--texto-fraco); text-align: center; font-style: italic; padding: 20px; }
+.rank-linha { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--bg); border-radius: 6px; border: 1px solid var(--borda); font-size: 13px; }
+.rank-linha.voce { border-color: var(--amarelo); background: rgba(255, 209, 102, 0.08); }
+.rank-pos { font-weight: bold; color: var(--texto-fraco); width: 30px; text-align: center; font-size: 14px; }
+.rank-nome { flex: 1; color: var(--texto); }
+.rank-voce { color: var(--amarelo); font-size: 11px; }
+.rank-nivel { color: var(--azul); font-weight: bold; }
+
+/* ---------- Login: rodapé com tutorial+config ---------- */
+.login-rodape { display: flex; gap: 8px; margin-top: 8px; }
+.login-rodape .botao { flex: 1; margin: 0 !important; }
+.botao-config { flex: 0 0 auto !important; padding: 10px 14px !important; }
+
+/* Barra de botões com mais botões precisa encolher */
+.barra-botoes { flex-wrap: wrap; }
+@media (max-width: 640px) {
+  .barra-botoes button { font-size: 10px; padding: 8px 2px; }
+}
+
+/* ---------- PWA: ajustes quando standalone ---------- */
+@media (display-mode: standalone) {
+  .tela.jogo { padding-top: max(8px, env(safe-area-inset-top)); }
+}
+
+/* ================================================================== */
+/* CORREÇÃO — BOTÕES DE CONFIG E RODAPÉS                               */
+/* ================================================================== */
+
+/* Rodapé do Login com Tutorial + Config */
+.login-rodape {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.login-rodape > .botao {
+  margin: 0 !important;
+  padding: 10px 12px;
+  flex: 1 1 auto;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.login-rodape > .botao.botao-config {
+  flex: 0 0 auto;
+  min-width: 44px;
+  width: 44px;
+  max-width: 44px;
+  padding: 10px 0 !important;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Rodapé dos Slots */
+.rodape-painel {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.rodape-painel > .botao {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 10px 8px;
+  box-sizing: border-box;
+}
+
+.rodape-painel > .botao.botao-config {
+  flex: 0 0 auto;
+  min-width: 44px;
+  width: 44px;
+  max-width: 44px;
+  padding: 10px 0;
+  font-size: 16px;
+}
+
+/* Rodapé do painel de Criação com botão de config */
+.criacao-topo {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: -8px;
+}
+
+.criacao-topo .botao-config {
+  min-width: 40px;
+  width: 40px;
+  padding: 8px 0;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Barra de botões do jogo — botões menores pra caber tudo */
+.barra-botoes {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.barra-botoes button {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 8px 4px;
+  box-sizing: border-box;
+}
+
+/* Ajustes mobile */
+@media (max-width: 640px) {
+  .login-rodape > .botao {
+    font-size: 12px;
+    padding: 10px 8px;
+  }
+  .barra-botoes button {
+    font-size: 11px;
+    padding: 8px 2px;
+  }
+}
+
+@media (max-width: 380px) {
+  .barra-botoes button {
+    font-size: 10px;
+    padding: 7px 1px;
+  }
+  .login-rodape > .botao {
+    font-size: 11px;
+  }
+}
