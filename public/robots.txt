@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+
+# Bloqueia o service worker de ser indexado (não é útil pro Google)
+Disallow: /sw.js
+
+Sitemap: https://pedraverde.vercel.app/sitemap.xml
