@@ -393,7 +393,7 @@ let ambienteGain = null;
 function getAmbienteGain(c) {
   if (ambienteGain && ambienteGain.context === c) return ambienteGain;
   ambienteGain = c.createGain();
-  ambienteGain.gain.value = ambienteHabilitado ? volume * 0.35 : 0;
+  ambienteGain.gain.value = ambienteHabilitado ? volume * 0.12 : 0;
   ambienteGain.connect(c.destination);
   return ambienteGain;
 }
@@ -403,7 +403,7 @@ export function setAmbienteVolume(v) {
   if (ambienteGain && ambienteGain.context) {
     const agora = ambienteGain.context.currentTime;
     ambienteGain.gain.setTargetAtTime(
-      ambienteHabilitado ? v * 0.35 : 0,
+      ambienteHabilitado ? v * 0.12 : 0,
       agora,
       0.15,
     );
@@ -415,12 +415,12 @@ export function setAmbienteHabilitado(v) {
   if (ambienteGain && ambienteGain.context) {
     const agora = ambienteGain.context.currentTime;
     ambienteGain.gain.setTargetAtTime(
-      ambienteHabilitado && ambienteAtivo ? volume * 0.35 : 0,
+      ambienteHabilitado && ambienteAtivo ? volume * 0.12 : 0,
       agora,
       0.3,
     );
   }
-  // Se desabilitado, para completamente
+
   if (!ambienteHabilitado) {
     pararAmbiente();
   }
@@ -429,38 +429,43 @@ export function setAmbienteHabilitado(v) {
 export function isAmbienteHabilitado() { return ambienteHabilitado; }
 export function isAmbienteAtivo() { return ambienteAtivo; }
 
-/* Cria vento contínuo com filtro modulado */
+/* Cria vento contínuo — versão suave */
 function criarVento(c, intensidade) {
   const bufferSize = c.sampleRate * 3;
   const buffer = c.createBuffer(1, bufferSize, c.sampleRate);
   const data = buffer.getChannelData(0);
+  // Ruído mais suave (marrom, menos agudo)
+  let ultimo = 0;
   for (let i = 0; i < bufferSize; i++) {
-    data[i] = (Math.random() * 2 - 1) * 0.5;
+    const branco = Math.random() * 2 - 1;
+    ultimo = (ultimo + 0.02 * branco) / 1.02;
+    data[i] = ultimo * 3.5;
   }
 
   const src = c.createBufferSource();
   src.buffer = buffer;
   src.loop = true;
 
+  // Passa-baixa suave (sem ressonância)
   const filtro = c.createBiquadFilter();
-  filtro.type = 'bandpass';
-  filtro.frequency.value = 400 + intensidade * 500;
-  filtro.Q.value = 0.8;
+  filtro.type = 'lowpass';
+  filtro.frequency.value = 200 + intensidade * 300;
+  filtro.Q.value = 0.3;
 
-  // LFO que modula a frequência (som de rajadas)
+  // LFO bem lento para dar respiração
   const lfo = c.createOscillator();
   lfo.type = 'sine';
-  lfo.frequency.value = 0.08 + Math.random() * 0.07;
+  lfo.frequency.value = 0.05 + Math.random() * 0.04;
 
   const lfoGain = c.createGain();
-  lfoGain.gain.value = 200 + intensidade * 300;
+  lfoGain.gain.value = 80 + intensidade * 100;
 
   lfo.connect(lfoGain);
   lfoGain.connect(filtro.frequency);
 
-  // Gain que dá volume proporcional
+  // Volume MUITO mais baixo
   const gain = c.createGain();
-  gain.gain.value = 0.08 + intensidade * 0.18;
+  gain.gain.value = 0.015 + intensidade * 0.035;
 
   src.connect(filtro);
   filtro.connect(gain);
@@ -471,6 +476,7 @@ function criarVento(c, intensidade) {
   return { src, lfo, filtro, gain };
 }
 
+/* Eventos sonoros */
 /* Eventos sonoros */
 function tocarEvento(c, tipo, gainNode) {
   const agora = c.currentTime;
@@ -524,7 +530,7 @@ function tocarEvento(c, tipo, gainNode) {
         osc.frequency.linearRampToValueAtTime(base + 400 + Math.random() * 300, t + 0.04);
         osc.frequency.linearRampToValueAtTime(base - 200, t + 0.08);
         g.gain.setValueAtTime(0, t);
-        g.gain.linearRampToValueAtTime(0.09, t + 0.005);
+        g.gain.linearRampToValueAtTime(0.03, t + 0.005);
         g.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
         osc.connect(g);
         g.connect(gainNode);
@@ -542,7 +548,7 @@ function tocarEvento(c, tipo, gainNode) {
       osc.frequency.linearRampToValueAtTime(base * 1.5, agora + 0.08);
       osc.frequency.linearRampToValueAtTime(base * 0.7, agora + 0.18);
       g.gain.setValueAtTime(0, agora);
-      g.gain.linearRampToValueAtTime(0.07, agora + 0.01);
+      g.gain.linearRampToValueAtTime(0.022, agora + 0.01);
       g.gain.exponentialRampToValueAtTime(0.001, agora + 0.22);
       osc.connect(g);
       g.connect(gainNode);
@@ -560,7 +566,7 @@ function tocarEvento(c, tipo, gainNode) {
         osc.frequency.setValueAtTime(base, t);
         osc.frequency.linearRampToValueAtTime(base * 1.2, t + 0.15);
         g.gain.setValueAtTime(0, t);
-        g.gain.linearRampToValueAtTime(0.08, t + 0.02);
+        g.gain.linearRampToValueAtTime(0.025, t + 0.02);
         g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
         osc.connect(g);
         g.connect(gainNode);
@@ -579,7 +585,7 @@ function tocarEvento(c, tipo, gainNode) {
         osc.frequency.setValueAtTime(base, t);
         osc.frequency.linearRampToValueAtTime(base * 0.6, t + 0.12);
         g.gain.setValueAtTime(0, t);
-        g.gain.linearRampToValueAtTime(0.06, t + 0.01);
+        g.gain.linearRampToValueAtTime(0.018, t + 0.01);
         g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
         osc.connect(g);
         g.connect(gainNode);
@@ -597,7 +603,7 @@ function tocarEvento(c, tipo, gainNode) {
         osc.type = 'sine';
         osc.frequency.setValueAtTime(base, t);
         g.gain.setValueAtTime(0, t);
-        g.gain.linearRampToValueAtTime(0.08, t + 0.02);
+        g.gain.linearRampToValueAtTime(0.022, t + 0.02);
         g.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
         osc.connect(g);
         g.connect(gainNode);
@@ -615,7 +621,7 @@ function tocarEvento(c, tipo, gainNode) {
         osc.type = 'triangle';
         osc.frequency.value = base;
         g.gain.setValueAtTime(0, t);
-        g.gain.linearRampToValueAtTime(0.04, t + 0.005);
+        g.gain.linearRampToValueAtTime(0.012, t + 0.005);
         g.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
         osc.connect(g);
         g.connect(gainNode);
@@ -631,7 +637,7 @@ function tocarEvento(c, tipo, gainNode) {
       osc.frequency.setValueAtTime(900 + Math.random() * 400, agora);
       osc.frequency.exponentialRampToValueAtTime(300, agora + 0.15);
       g.gain.setValueAtTime(0, agora);
-      g.gain.linearRampToValueAtTime(0.06, agora + 0.01);
+      g.gain.linearRampToValueAtTime(0.018, agora + 0.01);
       g.gain.exponentialRampToValueAtTime(0.001, agora + 0.2);
       osc.connect(g);
       g.connect(gainNode);
@@ -640,11 +646,11 @@ function tocarEvento(c, tipo, gainNode) {
       break;
     }
     case 'galho': {
-      criarRuido(0.15, 0.08, 1800, 'highpass');
+      criarRuido(0.15, 0.025, 1800, 'highpass');
       break;
     }
     case 'onda': {
-      criarRuido(1.2, 0.09, 900, 'lowpass');
+      criarRuido(1.2, 0.03, 900, 'lowpass');
       break;
     }
     case 'gaivota': {
@@ -657,7 +663,7 @@ function tocarEvento(c, tipo, gainNode) {
         osc.frequency.setValueAtTime(base, t);
         osc.frequency.linearRampToValueAtTime(base * 0.8, t + 0.15);
         g.gain.setValueAtTime(0, t);
-        g.gain.linearRampToValueAtTime(0.05, t + 0.02);
+        g.gain.linearRampToValueAtTime(0.018, t + 0.02);
         g.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
         osc.connect(g);
         g.connect(gainNode);
@@ -674,7 +680,7 @@ function tocarEvento(c, tipo, gainNode) {
         osc.type = 'sine';
         osc.frequency.value = f;
         g.gain.setValueAtTime(0, agora);
-        g.gain.linearRampToValueAtTime(0.06 / (i + 1), agora + 0.01);
+        g.gain.linearRampToValueAtTime(0.02 / (i + 1), agora + 0.01);
         g.gain.exponentialRampToValueAtTime(0.001, agora + 1.5);
         osc.connect(g);
         g.connect(gainNode);
@@ -684,11 +690,11 @@ function tocarEvento(c, tipo, gainNode) {
       break;
     }
     case 'vento_forte': {
-      criarRuido(2.5, 0.12, 700, 'bandpass');
+      criarRuido(2.5, 0.035, 700, 'bandpass');
       break;
     }
     case 'areia': {
-      criarRuido(1.8, 0.06, 2500, 'highpass');
+      criarRuido(1.8, 0.02, 2500, 'highpass');
       break;
     }
     case 'gelo': {
@@ -699,7 +705,7 @@ function tocarEvento(c, tipo, gainNode) {
       osc.frequency.setValueAtTime(base, agora);
       osc.frequency.exponentialRampToValueAtTime(base * 0.5, agora + 0.3);
       g.gain.setValueAtTime(0, agora);
-      g.gain.linearRampToValueAtTime(0.04, agora + 0.01);
+      g.gain.linearRampToValueAtTime(0.015, agora + 0.01);
       g.gain.exponentialRampToValueAtTime(0.001, agora + 0.4);
       osc.connect(g);
       g.connect(gainNode);
@@ -708,12 +714,12 @@ function tocarEvento(c, tipo, gainNode) {
       break;
     }
     case 'tocha': {
-      criarRuido(0.25, 0.1, 1200, 'bandpass');
+      criarRuido(0.25, 0.03, 1200, 'bandpass');
       break;
     }
     case 'corrente': {
-      criarRuido(0.4, 0.06, 800, 'bandpass');
-      setTimeout(() => criarRuido(0.3, 0.05, 1000, 'bandpass'), 80);
+      criarRuido(0.4, 0.02, 800, 'bandpass');
+      setTimeout(() => criarRuido(0.3, 0.018, 1000, 'bandpass'), 80);
       break;
     }
     case 'carrinho': {
@@ -725,7 +731,7 @@ function tocarEvento(c, tipo, gainNode) {
         osc.type = 'square';
         osc.frequency.value = base;
         g.gain.setValueAtTime(0, t);
-        g.gain.linearRampToValueAtTime(0.04, t + 0.005);
+        g.gain.linearRampToValueAtTime(0.015, t + 0.005);
         g.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
         osc.connect(g);
         g.connect(gainNode);
@@ -744,13 +750,15 @@ function agendarEvento() {
   if (!c) return;
   const gain = getAmbienteGain(c);
 
+  // Aumenta bastante o intervalo (2.5x maior que antes)
   const [minS, maxS] = ambientePerfil.intervalo || [3, 7];
-  const delay = (minS + Math.random() * (maxS - minS)) * 1000;
+  const delay = (minS * 2.5 + Math.random() * (maxS - minS) * 2.5) * 1000;
 
   ambienteTimer = setTimeout(() => {
     if (!ambienteAtivo || !ambientePerfil) return;
     const eventos = ambientePerfil.eventos || [];
-    if (eventos.length) {
+    // 45% de chance de não tocar nada (silêncio entre eventos)
+    if (eventos.length && Math.random() < 0.55) {
       const ev = eventos[Math.floor(Math.random() * eventos.length)];
       try { tocarEvento(c, ev, gain); } catch {}
     }
