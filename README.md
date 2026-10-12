@@ -421,3 +421,4 @@ src/
 | PWA | Service Worker + Manifest |
 | Deploy | Vercel |
 ```
+
