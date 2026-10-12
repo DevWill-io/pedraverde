@@ -111,11 +111,13 @@ export function novoJogo(opcoes = {}) {
 /* TEMPO E CLIMA                                                       */
 /* ================================================================== */
 
-/** Avança o tempo se passaram comandos suficientes */
-function avancarTempo(e, p) {
-  e.contadorTempo = (e.contadorTempo || 0) + 1;
-  if (e.contadorTempo < 5) return;
-  e.contadorTempo = 0;
+/** Avança o tempo. Se `forcar` for true, ignora o contador e avança na hora. */
+function avancarTempo(e, p, forcar = false) {
+  if (!forcar) {
+    e.contadorTempo = (e.contadorTempo || 0) + 1;
+    if (e.contadorTempo < 5) return;
+    e.contadorTempo = 0;
+  }
 
   const horaAntiga = e.hora || 6;
   e.hora = avancarHora(e.hora || 6, 1);
@@ -1443,8 +1445,8 @@ export function processar(estadoAnterior, entradaBruta) {
       const h = e.hp, m = e.mana;
       e.hp = e.hpMax; e.mana = e.manaMax; e.efeitos = [];
       p(`Descansou. HP ${h}→${e.hp} | MP ${m}→${e.mana}`, 'cura');
-      // Descansar avança 3 horas
-      for (let i = 0; i < 3; i++) avancarTempo(e, () => {});
+      // Descansar avança 3 horas direto (ignora o contador normal)
+      for (let i = 0; i < 3; i++) avancarTempo(e, p, true);
       break;
     }
     case 'magias': case 'grimorio': {
