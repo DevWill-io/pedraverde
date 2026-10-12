@@ -20,6 +20,10 @@ import {
   calcularPeriodo, formatarHora, sortearClima, avancarHora,
   getClima, getPeriodo, resumoAmbiente,
 } from '../content/clima.js';
+import {
+  hoje, ontem, sortearMissoesDiarias, recompensaStreak, acharMissao,
+  MISSOES_DIARIAS, STREAK_RECOMPENSAS,
+} from '../content/diarias.js';
 
 injetarItens(ITENS);
 
@@ -141,6 +145,17 @@ export function novoJogo(opcoes = {}) {
     climaAtual: 'limpo',
     contadorTempo: 0,  // quantos comandos desde o último avanço
     ultimoDescanso: -999, // hora absoluta do último descanso (cooldown)
+    // ⭐ Sistema de missões diárias + login streak
+    diarias: {
+      data: null,              // data atual das missões (YYYY-MM-DD)
+      missoes: [],             // IDs das 3 missões do dia
+      progresso: {},           // { missaoId: progressoAtual }
+      concluidas: [],          // IDs já completados hoje
+      reivindicadas: [],       // IDs cujas recompensas foram pegas
+      streak: 0,               // dias consecutivos de login
+      ultimoLogin: null,       // data do último login (YYYY-MM-DD)
+      recompensaPendente: 0,   // dia do streak a reivindicar (0 = nada)
+    },
     inventario: [{ id: 'pocao', qtd: 2 }, { id: 'pao', qtd: 2 }],
     equipado: { arma: null, escudo: null, elmo: null, armadura: null, botas: null, anel: null, colar: null, capa: null },
     encantamentos: {},
@@ -292,6 +307,13 @@ function normalizarEstado(e) {
   if (!e.climaAtual) e.climaAtual = 'limpo';
   if (typeof e.contadorTempo !== 'number') e.contadorTempo = 0;
   if (typeof e.ultimoDescanso !== 'number') e.ultimoDescanso = -999;
+  // ⭐ Sistema de diárias (retrocompatível)
+  if (!e.diarias) {
+    e.diarias = {
+      data: null, missoes: [], progresso: {}, concluidas: [], reivindicadas: [],
+      streak: 0, ultimoLogin: null, recompensaPendente: 0,
+    };
+  }
   if (!e.estatisticas) {
     e.estatisticas = { locaisVisitados: [e.local || 'pedraverde'], inimigosMortos: {}, mortes: 0, danoTotal: 0, danoRecebido: 0, magiasLancadas: 0, eventosVividos: 0, turnosDeCombate: 0, vitoriasArena: 0, nocauteArena: 0, itensCriados: 0, itensEncantados: 0, fugasInimigos: 0, criadoEm: Date.now() };
   }
@@ -346,6 +368,217 @@ function checarConquistas(e, p) {
     }
   }
   return novas;
+}
+
+/* ================================================================== */
+/* Missões Diárias + Login Streak                                      */
+/* ================================================================== */
+
+/** Atualiza as diárias se virou o dia. Chamado no início de processar() */
+function atualizarDiarias(e, p) {
+  const dataHoje = hoje();
+  const d = e.diarias;
+
+  /* ---- Primeira vez ou virou o dia ---- */
+  if (d.data !== dataHoje) {
+    // Sorteia 3 novas missões
+    const novas = sortearMissoesDiarias(3);
+    d.data = dataHoje;
+    d.missoes = novas.map((m) => m.id);
+    d.progresso = {};
+    d.concluidas = [];
+    d.reivindicadas = [];
+    p('', 'espaco');
+    p('📅 Novas missões diárias disponíveis! Use "diarias" para ver.', 'quest');
+    p('', 'espaco');
+
+    /* ---- Login streak ---- */
+    if (d.ultimoLogin === ontem()) {
+      // Continua o streak
+      d.streak = (d.streak || 0) + 1;
+    } else if (d.ultimoLogin !== dataHoje) {
+      // Quebrou ou primeiro login
+      d.streak = 1;
+    }
+
+    d.ultimoLogin = dataHoje;
+    d.recompensaPendente = ((d.streak - 1) % 7) + 1;
+
+    p(`🔥 Login streak: ${d.streak} dia${d.streak > 1 ? 's' : ''} consecutivos!`, 'level-up');
+    p(`   Use "reivindicar" para pegar a recompensa do dia.`, 'sistema');
+  }
+}
+
+/** Registra progresso numa missão diária */
+function progredirDiaria(e, tipo, valor, p) {
+  const d = e.diarias;
+  if (!d?.missoes?.length) return;
+
+  for (const mId of d.missoes) {
+    if (d.concluidas.includes(mId)) continue;
+    const m = acharMissao(mId);
+    if (!m) continue;
+
+    // Verifica se o tipo bate
+    const tiposCompativeis = [m.objetivo.tipo];
+    if (m.objetivo.tipo === 'matar' && tipo === 'matar') tiposCompativeis.push('matar');
+    if (m.objetivo.tipo === 'matar_chefe' && tipo === 'matar_chefe') tiposCompativeis.push('matar_chefe');
+    if (!tiposCompativeis.includes(tipo)) continue;
+
+    d.progresso[mId] = (d.progresso[mId] || 0) + valor;
+
+    if (d.progresso[mId] >= m.objetivo.qtd) {
+      d.concluidas.push(mId);
+      p(`📅 Missão diária completa: ${m.emoji} ${m.nome}!`, 'quest');
+      p(`   Use "reivindicar ${m.nome}" para pegar a recompensa.`, 'sistema');
+    } else {
+      p(`📅 Diária: ${m.emoji} ${m.nome} — ${d.progresso[mId]}/${m.objetivo.qtd}`, 'sistema');
+    }
+  }
+}
+
+/** Reivindica recompensa de missão completa ou do login streak */
+function reivindicarRecompensa(e, arg, p) {
+  const d = e.diarias;
+  const alvo = normalizar(arg);
+
+  /* ---- Reivindicar TODAS as diárias completas ---- */
+  if (alvo === '' || alvo === 'tudo' || alvo === 'todas' || alvo === 'all') {
+    let ganhos = 0;
+
+    // Reivindica streak (prioridade)
+    if (d.recompensaPendente > 0) {
+      const rec = recompensaStreak(d.recompensaPendente);
+      if (rec) {
+        if (rec.moedas) e.moedas += rec.moedas;
+        if (rec.xp) e.xp += rec.xp;
+        if (rec.itens) rec.itens.forEach((id) => addItem(e, id, 1));
+        p(`🔥 Login streak dia ${d.streak}: +${rec.moedas || 0}◈${rec.xp ? ` +${rec.xp} XP` : ''}${rec.itens ? ' + ' + rec.itens.map((i) => ITENS[i]?.nome).filter(Boolean).join(', ') : ''}`, 'level-up');
+        d.recompensaPendente = 0;
+        ganhos++;
+        checarNivel(e, p);
+      }
+    }
+
+    // Reivindica diárias
+    for (const mId of [...d.concluidas]) {
+      if (d.reivindicadas.includes(mId)) continue;
+      const m = acharMissao(mId);
+      if (!m) continue;
+      const r = m.recompensa || {};
+      if (r.moedas) e.moedas += r.moedas;
+      if (r.xp) e.xp += r.xp;
+      p(`✔ ${m.emoji} ${m.nome}: +${r.moedas || 0}◈${r.xp ? ` +${r.xp} XP` : ''}`, 'sucesso');
+      d.reivindicadas.push(mId);
+      ganhos++;
+      checarNivel(e, p);
+    }
+
+    if (ganhos === 0) {
+      p('Nada para reivindicar agora.', 'sistema');
+      p('Use "diarias" para ver o progresso.', 'sistema');
+    }
+    return;
+  }
+
+  /* ---- Reivindicar streak ---- */
+  if (alvo === 'streak' || alvo === 'login') {
+    if (d.recompensaPendente <= 0) {
+      p('Você já reivindicou a recompensa de login do dia.', 'sistema');
+      return;
+    }
+    const rec = recompensaStreak(d.recompensaPendente);
+    if (rec) {
+      if (rec.moedas) e.moedas += rec.moedas;
+      if (rec.xp) e.xp += rec.xp;
+      if (rec.itens) rec.itens.forEach((id) => addItem(e, id, 1));
+      p(`🔥 Login streak dia ${d.streak}: +${rec.moedas || 0}◈${rec.xp ? ` +${rec.xp} XP` : ''}`, 'level-up');
+      d.recompensaPendente = 0;
+      checarNivel(e, p);
+    }
+    return;
+  }
+
+  /* ---- Reivindicar missão específica ---- */
+  const m = d.missoes
+    .map((id) => acharMissao(id))
+    .find((x) => x && (normalizar(x.nome).includes(alvo) || normalizar(x.id).includes(alvo)));
+
+  if (!m) {
+    p('Missão não encontrada. Use "diarias" para ver a lista.', 'erro');
+    return;
+  }
+  if (!d.concluidas.includes(m.id)) {
+    p('Essa missão ainda não foi completada.', 'erro');
+    return;
+  }
+  if (d.reivindicadas.includes(m.id)) {
+    p('Você já reivindicou essa recompensa.', 'erro');
+    return;
+  }
+
+  const r = m.recompensa || {};
+  if (r.moedas) e.moedas += r.moedas;
+  if (r.xp) e.xp += r.xp;
+  p(`✔ ${m.emoji} ${m.nome}: +${r.moedas || 0}◈${r.xp ? ` +${r.xp} XP` : ''}`, 'sucesso');
+  d.reivindicadas.push(m.id);
+  checarNivel(e, p);
+}
+
+/** Comando "diarias" — lista missões do dia + login streak */
+function listarDiarias(e, p) {
+  const d = e.diarias;
+  p('◆ Missões Diárias', 'titulo');
+  p(`📅 Data: ${d.data || hoje()}`, 'tempo-info');
+  p('', 'espaco');
+
+  if (!d.missoes?.length) {
+    p('Nenhuma missão disponível hoje.', 'sistema');
+    return;
+  }
+
+  for (const mId of d.missoes) {
+    const m = acharMissao(mId);
+    if (!m) continue;
+    const prog = d.progresso[mId] || 0;
+    const completa = d.concluidas.includes(mId);
+    const reivindicada = d.reivindicadas.includes(mId);
+
+    if (reivindicada) {
+      p(`${m.emoji} ${m.nome} — ✓ Recompensa pegada`, 'quest-feita');
+    } else if (completa) {
+      p(`${m.emoji} ${m.nome} — 🎁 PRONTA PARA REIVINDICAR`, 'talento-ponto');
+    } else {
+      p(`${m.emoji} ${m.nome} — ${Math.min(prog, m.objetivo.qtd)}/${m.objetivo.qtd}`, 'quest-ativa');
+    }
+    p(`     ${m.desc}`, 'item-desc');
+    const r = m.recompensa || {};
+    const partes = [];
+    if (r.moedas) partes.push(`${r.moedas} ◈`);
+    if (r.xp) partes.push(`${r.xp} XP`);
+    if (partes.length) p(`     Recompensa: ${partes.join(' · ')}`, 'loot');
+    p('', 'separador');
+  }
+
+  /* ---- Login Streak ---- */
+  p('◆ Login Streak', 'titulo');
+  p(`🔥 Dias consecutivos: ${d.streak}`, 'level-up');
+  if (d.recompensaPendente > 0) {
+    const rec = recompensaStreak(d.recompensaPendente);
+    if (rec) {
+      p(`🎁 Recompensa de hoje: ${rec.desc} — ${rec.moedas || 0}◈${rec.xp ? ` +${rec.xp} XP` : ''}${rec.itens ? ' + ' + rec.itens.map((i) => ITENS[i]?.nome).filter(Boolean).join(', ') : ''}`, 'talento-ponto');
+      p(`   Use "reivindicar" para pegar.`, 'sistema');
+    }
+  } else {
+    p('✓ Recompensa do dia já foi pega.', 'sucesso');
+  }
+  p('', 'espaco');
+
+  /* ---- Dicas ---- */
+  const algumaPronta = d.concluidas.some((id) => !d.reivindicadas.includes(id));
+  if (algumaPronta || d.recompensaPendente > 0) {
+    p('💡 Use "reivindicar" para pegar todas as recompensas disponíveis.', 'sistema');
+  }
 }
 
 /* ================================================================== */
@@ -458,6 +691,7 @@ function talvezEvento(e, local, p) {
   const ev = sortearEvento();
   ev.aplicar(e, p);
   e.estatisticas.eventosVividos += 1;
+  progredirDiaria(e, 'evento', 1, p);
   checarConquistas(e, p);
 }
 
@@ -476,6 +710,7 @@ function lancarMagia(e, magiaId, p) {
   if (e.mana < custo) { p(`Mana insuficiente (${e.mana}/${custo}).`, 'erro'); return false; }
   e.mana -= custo; e.estatisticas.magiasLancadas += 1;
   p(`${m.emoji} Você conjura ${m.nome}! (-${custo} mana)`, 'magia');
+  progredirDiaria(e, 'magia', 1, p);
 
   if (m.tipo === 'ataque') {
     let dano = m.dano ? m.dano + d6() : Math.round(atkTotal(e) * (m.multiplicador || 1));
@@ -578,7 +813,7 @@ function listarArena(e, p) {
 /* Combate                                                             */
 /* ================================================================== */
 const ACOES_COMBATE = ['atacar', 'forte', 'rapido', 'defender', 'esquivar', 'focar', 'fugir'];
-const PERMITIDOS_EM_COMBATE = [...ACOES_COMBATE, 'usar', 'magia', 'magias', 'inventario', 'inv', 'i', 'status', 'ajuda', 'olhar', 'equipar', 'examinar', 'inspecionar', 'talentos', 'conquistas', 'clima', 'hora'];
+const PERMITIDOS_EM_COMBATE = [...ACOES_COMBATE, 'usar', 'magia', 'magias', 'inventario', 'inv', 'i', 'status', 'ajuda', 'olhar', 'equipar', 'examinar', 'inspecionar', 'talentos', 'conquistas', 'clima', 'hora', 'diarias', 'reivindicar'];
 
 function iniciarCombate(e, id, p) {
   const b = INIMIGOS[id];
@@ -896,6 +1131,7 @@ function processarCombate(e, cmd, arg, p) {
   } else if (totalDano > 0) {
     const ex = []; if (algumCritico) ex.push('CRÍTICO'); if (cmd === 'forte') ex.push('forte'); if (cmd === 'rapido') ex.push('rápido'); if (golpeDuplo) ex.push('GOLPE DUPLO');
     p(`⚔ Você${ex.length ? ' (' + ex.join(', ') + ')' : ''} causa ${totalDano}.`, algumCritico ? 'dano-critico' : 'dano-causado');
+    progredirDiaria(e, 'dano', totalDano, p);
   }
 
   e.emCombate.criticoCarregado = false;
@@ -912,6 +1148,7 @@ function vencer(e, p) {
     e.xp += xp; e.estatisticas.vitoriasArena += 1;
     p(`+${xp} XP.`, 'xp');
     e.emCombate = null; e.efeitos = [];
+    progredirDiaria(e, 'arena', 1, p);
     checarNivel(e, p);
     checarConquistas(e, p);
     return;
@@ -928,6 +1165,8 @@ function vencer(e, p) {
   e.flags[`derrotou_${ini.id}`] = true;
   e.emCombate = null; e.efeitos = [];
   progredir(e, 'matar', ini.id, p);
+  progredirDiaria(e, 'matar', 1, p);
+  if (b.chefe) progredirDiaria(e, 'matar_chefe', 1, p);
   checarNivel(e, p);
   checarConquistas(e, p);
 }
@@ -997,6 +1236,7 @@ function tentarCraftar(e, arg, p) {
   addItem(e, item.id, 1);
   e.estatisticas.itensCriados += 1;
   p(`⚒ Você forjou ${item.nome}${raridadeTag(item)}!`, 'craft');
+  progredirDiaria(e, 'craftar', 1, p);
   checarConquistas(e, p);
   return true;
 }
@@ -1017,6 +1257,7 @@ function tentarEncantar(e, slotArg, encArg, p) {
   e.estatisticas.itensEncantados += 1;
   p(`${enc.emoji} Você imbui ${ITENS[e.equipado[slot]].nome} com ${enc.nome}!`, 'encantar');
   p(`   ${enc.desc}`, 'encantar');
+  progredirDiaria(e, 'encantar', 1, p);
   checarConquistas(e, p);
   return true;
 }
@@ -1358,6 +1599,7 @@ const AJUDA = [
   'magias · magia <nome> · efeitos',
   'talentos · escolher <nível> <1|2>',
   'conquistas · titulo <nome>',
+  'diarias · reivindicar [missão|streak]',
   'bestiario · diario · treinar <inimigo> · status',
   'receitas · craftar <item> · encantamentos · encantar <slot> <tipo>',
   'falar · loja · comprar <item|número> · vender <item|número>',
@@ -1376,6 +1618,9 @@ export function processar(estadoAnterior, entradaBruta) {
   const partes = raw.split(/\s+/);
   const cmd = normalizar(partes[0]);
   const arg = partes.slice(1).join(' ').trim();
+
+  // ⭐ Atualiza missões diárias ao entrar (sorteia novas se virou o dia)
+  atualizarDiarias(e, p);
 
   if (e.emCombate && !PERMITIDOS_EM_COMBATE.includes(cmd)) {
     p('⚔ Você está em combate!', 'erro');
@@ -1419,6 +1664,7 @@ export function processar(estadoAnterior, entradaBruta) {
       e.local = dest;
       // ⭐ Sorteia clima da nova região
       e.climaAtual = sortearClima(dl.regiao || 'vila').id;
+      progredirDiaria(e, 'visitar', 1, p);
       aoEntrar(e, p);
       avancarTempo(e, p);
       break;
@@ -1570,6 +1816,7 @@ export function processar(estadoAnterior, entradaBruta) {
       if (item.cura) { let cura = item.cura; if (temTalento(e, 'fe')) cura = Math.round(cura * 1.3); const a = e.hp; e.hp = Math.min(e.hpMax, e.hp + cura); p(`Usou ${item.nome}. +${e.hp - a} HP.`, 'cura'); }
       if (item.mana) { const a = e.mana; e.mana = Math.min(e.manaMax, e.mana + item.mana); p(`Recupera ${e.mana - a} MP.`, 'mana'); }
       if (item.id === 'antidoto') { e.efeitos = (e.efeitos || []).filter((ef) => EFEITOS[ef.tipo]?.tipo !== 'dano'); p('Antídoto limpou efeitos.', 'cura'); }
+      progredirDiaria(e, 'usar', 1, p);
       if (e.emCombate) { e.emCombate.ultimaAcaoJogador = 'usar'; turnoInimigo(e, p); }
       break;
     }
@@ -1689,6 +1936,12 @@ export function processar(estadoAnterior, entradaBruta) {
       break;
     case 'titulo': case 'title':
       escolherTitulo(e, arg, p);
+      break;
+    case 'diarias': case 'daily': case 'dailies':
+      listarDiarias(e, p);
+      break;
+    case 'reivindicar': case 'claim':
+      reivindicarRecompensa(e, arg, p);
       break;
     case 'bestiario': {
       const m = e.estatisticas.inimigosMortos || {};
@@ -1858,6 +2111,7 @@ export function processar(estadoAnterior, entradaBruta) {
       addItem(e, item.id, 1);
       p(`Comprou ${item.nome}${raridadeTag(item)} por ${item.preco}◈. (restam ${e.moedas})`, 'compra');
       progredir(e, 'comprar', 'qualquer', p);
+      progredirDiaria(e, 'comprar', 1, p);
       checarConquistas(e, p);
       break;
     }
@@ -1882,6 +2136,7 @@ export function processar(estadoAnterior, entradaBruta) {
       }
       e.moedas += valor;
       p(`Vendeu ${item.nome} por ${valor}◈. (total ${e.moedas})`, 'venda');
+      progredirDiaria(e, 'vender', 1, p);
       checarConquistas(e, p);
       break;
     }

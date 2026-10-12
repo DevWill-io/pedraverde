@@ -2803,3 +2803,19 @@ button,
     font-size: 12px;
   }
 }
+
+/* ================================================================== */
+/* MISSÕES DIÁRIAS E LOGIN STREAK                                      */
+/* ================================================================== */
+
+/* Badge no header quando há recompensa disponível */
+.tag-diaria {
+  color: #ffd166;
+  font-weight: bold;
+  background: rgba(255, 209, 102, 0.15);
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 209, 102, 0.55);
+  animation: pulsar 1.4s infinite;
+  font-size: 11px;
+}

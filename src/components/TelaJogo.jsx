@@ -171,8 +171,8 @@ export default function TelaJogo({
   const pctMp = estado.manaMax > 0 ? Math.max(0, Math.min(100, (estado.mana / estado.manaMax) * 100)) : 0;
   const atalhos = useMemo(
     () => idioma === 'en'
-      ? ['look', 'map', 'weather', 'stats', 'inventory', 'spells', 'talents', 'achievements', 'quests', 'help']
-      : ['olhar', 'mapa', 'clima', 'status', 'inventario', 'magias', 'talentos', 'conquistas', 'quests', 'ajuda'],
+      ? ['look', 'map', 'weather', 'stats', 'inventory', 'spells', 'talents', 'achievements', 'quests', 'daily', 'help']
+      : ['olhar', 'mapa', 'clima', 'status', 'inventario', 'magias', 'talentos', 'conquistas', 'quests', 'diarias', 'ajuda'],
     [idioma],
   );
 
@@ -220,6 +220,12 @@ export default function TelaJogo({
           <span className="tag">DEF {defTotal(estado)}</span>
           <span className="tag moeda">◈ {estado.moedas}</span>
           {pontosTalento > 0 && <span className="tag tag-talento" title="Pontos de talento disponíveis">★ {pontosTalento}</span>}
+          {estado.diarias?.recompensaPendente > 0 && (
+            <span className="tag tag-diaria" title="Recompensa diária disponível">📅!</span>
+          )}
+          {(estado.diarias?.concluidas || []).some((id) => !(estado.diarias?.reivindicadas || []).includes(id)) && (
+            <span className="tag tag-diaria" title="Missão diária completa">📅✓</span>
+          )}
           <span className={`tag ${emArena ? 'tag-arena' : 'local'}`}>{emArena ? '⚔ ' : ''}{local?.nome}</span>
         </div>
         <div className="barras">
