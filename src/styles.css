@@ -1931,3 +1931,117 @@ html[data-tema="claro"] .status-bar { background: var(--bg-2); }
     font-size: 11px;
   }
 }
+
+/* ================================================================== */
+/* ORGANIZAÇÃO VISUAL — divisórias, espaços e cores                    */
+/* ================================================================== */
+
+/* --- Divisória entre itens: linha tracejada que ocupa a largura toda --- */
+.linha.separador {
+  padding: 0;
+  margin: 2px 0;
+  min-height: 8px;
+  opacity: 0.35;
+}
+
+.linha.separador::before {
+  content: '';
+  display: block;
+  width: 100%;
+  border-top: 1px dashed currentColor;
+  color: var(--borda);
+  margin: 4px 0;
+}
+
+/* --- Espaço em branco entre seções --- */
+.linha.espaco {
+  height: 6px;
+  padding: 0;
+  margin: 0;
+}
+
+/* --- Nomes de itens (título de bloco) --- */
+.linha.item-titulo .texto {
+  color: var(--amarelo);
+  font-weight: bold;
+}
+
+/* --- Descrições de item: itálico, mais discreto --- */
+.linha.item-desc .texto {
+  color: var(--texto-fraco);
+  font-style: italic;
+  opacity: 0.95;
+}
+
+/* --- Bônus (ATK/DEF/cura): verde destacado --- */
+.linha.item-bonus .texto {
+  color: var(--verde);
+  font-weight: bold;
+  letter-spacing: 0.3px;
+}
+
+/* --- Preço: amarelo suave --- */
+.linha.item-preco .texto {
+  color: var(--amarelo);
+  opacity: 0.9;
+}
+
+/* --- Info genérica (tipo, raridade, local) --- */
+.linha.item-info .texto {
+  color: var(--texto-fraco);
+}
+
+/* --- Quests: cores distintas por estado --- */
+.linha.quest-ativa .texto {
+  color: var(--azul);
+  font-weight: bold;
+  letter-spacing: 0.3px;
+}
+
+.linha.quest-disp .texto {
+  color: var(--texto);
+  font-weight: bold;
+}
+
+.linha.quest-recompensa .texto {
+  color: var(--amarelo);
+  opacity: 0.9;
+}
+
+.linha.quest-comando .texto {
+  color: var(--verde);
+  font-style: italic;
+  font-size: 12px;
+}
+
+.linha.quest-feita .texto {
+  color: var(--verde);
+  opacity: 0.7;
+}
+
+/* --- Melhorar a legibilidade geral das linhas --- */
+.linha .texto {
+  line-height: 1.45;
+}
+
+/* Em telas pequenas, deixa o texto mais compacto mas organizado */
+@media (max-width: 640px) {
+  .linha .texto {
+    line-height: 1.5;
+    font-size: 13px;
+  }
+
+  .linha.item-desc .texto {
+    font-size: 12px;
+  }
+
+  .linha.quest-comando .texto {
+    font-size: 11px;
+  }
+
+  /* Prefixo menor para liberar largura no mobile */
+  .linha .prefixo {
+    width: 12px;
+    font-size: 12px;
+  }
+}
