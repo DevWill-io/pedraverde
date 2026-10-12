@@ -431,49 +431,10 @@ export function isAmbienteAtivo() { return ambienteAtivo; }
 
 /* Cria vento contínuo — versão suave */
 function criarVento(c, intensidade) {
-  const bufferSize = c.sampleRate * 3;
-  const buffer = c.createBuffer(1, bufferSize, c.sampleRate);
-  const data = buffer.getChannelData(0);
-  // Ruído mais suave (marrom, menos agudo)
-  let ultimo = 0;
-  for (let i = 0; i < bufferSize; i++) {
-    const branco = Math.random() * 2 - 1;
-    ultimo = (ultimo + 0.02 * branco) / 1.02;
-    data[i] = ultimo * 3.5;
-  }
-
-  const src = c.createBufferSource();
-  src.buffer = buffer;
-  src.loop = true;
-
-  // Passa-baixa suave (sem ressonância)
-  const filtro = c.createBiquadFilter();
-  filtro.type = 'lowpass';
-  filtro.frequency.value = 200 + intensidade * 300;
-  filtro.Q.value = 0.3;
-
-  // LFO bem lento para dar respiração
-  const lfo = c.createOscillator();
-  lfo.type = 'sine';
-  lfo.frequency.value = 0.05 + Math.random() * 0.04;
-
-  const lfoGain = c.createGain();
-  lfoGain.gain.value = 80 + intensidade * 100;
-
-  lfo.connect(lfoGain);
-  lfoGain.connect(filtro.frequency);
-
-  // Volume MUITO mais baixo
+  // ⭐ Vento removido — só toca eventos sonoros (pássaros, sapos, etc.)
   const gain = c.createGain();
-  gain.gain.value = 0.015 + intensidade * 0.035;
-
-  src.connect(filtro);
-  filtro.connect(gain);
-
-  src.start();
-  lfo.start();
-
-  return { src, lfo, filtro, gain };
+  gain.gain.value = 0;
+  return { src: null, lfo: null, filtro: null, gain };
 }
 
 /* Eventos sonoros */
@@ -787,12 +748,8 @@ export function iniciarAmbiente(perfilId) {
     0.6,
   );
 
-  // Cria vento contínuo
+  // ⭐ Vento removido — só eventos sonoros
   ambienteNodes = criarVento(c, ambientePerfil.vento);
-  ambienteNodes.src.connect(gain);
-  // (o gain interno do vento já está ligado ao filtro)
-  ambienteNodes.gain.disconnect();
-  ambienteNodes.gain.connect(gain);
 
   // Agenda eventos
   agendarEvento();
@@ -814,12 +771,6 @@ export function pararAmbiente() {
         g.gain.setTargetAtTime(0, agora, 0.4);
       } catch {}
     }
-    const src = ambienteNodes.src;
-    const lfo = ambienteNodes.lfo;
-    setTimeout(() => {
-      try { src?.stop(); } catch {}
-      try { lfo?.stop(); } catch {}
-    }, 1200);
     ambienteNodes = null;
   }
   ambientePerfil = null;
