@@ -26,8 +26,7 @@ import Config from './components/Config.jsx';
 import Chat from './components/Chat.jsx';
 import Ranking from './components/Ranking.jsx';
 
-const MAX_LOG = 1000;
-
+const MAX_LOG = 25;
 const ACOES_COMBATE_RAPIDAS = ['atacar', 'forte', 'rapido', 'defender', 'esquivar', 'focar', 'fugir'];
 
 const PREFIXOS = {
@@ -52,6 +51,26 @@ const PREFIXOS = {
   'talento-bloq': '🔒', 'talento-comando': ' ', 'talento-aprendido': '★',
   conquista: '🏆', 'conquista-desc': ' ', 'conquista-info': ' ', 'conquista-ok': ' ', 'conquista-bloq': '🔒',
   'tempo-clima': ' ', 'tempo-periodo': ' ', 'tempo-info': ' ', 'tempo-aviso': '⚠', 'tempo-efeito': ' ',
+};
+
+/* ================================================================== */
+/* Configuração dos toasts — quais tipos de linha viram notificação    */
+/* ================================================================== */
+const TOAST_TIPOS = {
+  'level-up':           { emoji: '🎉', titulo: 'Level Up!',            cor: 'toast-levelup' },
+  conquista:            { emoji: '🏆', titulo: 'Conquista',            cor: 'toast-conquista' },
+  'talento-ponto':      { emoji: '★',  titulo: 'Talento disponível',   cor: 'toast-talento' },
+  'talento-aprendido':  { emoji: '★',  titulo: 'Talento aprendido',    cor: 'toast-talento' },
+  morte:                { emoji: '💀', titulo: 'Você caiu',            cor: 'toast-morte' },
+  vitoria:              { emoji: '⚔',  titulo: 'Vitória',              cor: 'toast-vitoria' },
+  'evento-epico':       { emoji: '✦',  titulo: 'Item épico',           cor: 'toast-epico' },
+  quest:                { emoji: '✓',  titulo: 'Quest completa',       cor: 'toast-quest' },
+  'evento-bom':         { emoji: '◆',  titulo: 'Evento',               cor: 'toast-evento-bom' },
+  'evento-ruim':        { emoji: '⚠',  titulo: 'Atenção',              cor: 'toast-evento-ruim' },
+  craft:                { emoji: '⚒',  titulo: 'Item criado',          cor: 'toast-craft' },
+  encantar:             { emoji: '✨', titulo: 'Item encantado',        cor: 'toast-encantar' },
+  'tempo-clima':        { emoji: '🌦', titulo: 'Clima',                cor: 'toast-clima' },
+  'tempo-periodo':      { emoji: '🕐', titulo: 'Tempo',                cor: 'toast-periodo' },
 };
 
 function lerConfig() {
@@ -158,9 +177,12 @@ function TelaJogo({
   const [entrada, setEntrada] = useState('');
   const [historico, setHistorico] = useState([]);
   const [idxHist, setIdxHist] = useState(-1);
-  const [toast, setToast] = useState('');
   const [salvando, setSalvando] = useState(false);
   const [painelMagias, setPainelMagias] = useState(false);
+
+  /* ⭐ Sistema de toasts */
+  const [toasts, setToasts] = useState([]);
+
   const logRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -177,33 +199,66 @@ function TelaJogo({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /* ⭐ Adiciona um toast na fila */
+  function adicionarToast(texto, tipo, emoji) {
+    const id = Date.now() + Math.random();
+    setToasts((arr) => [...arr, { id, texto, tipo, emoji }].slice(-4));
+    setTimeout(() => {
+      setToasts((arr) => arr.filter((x) => x.id !== id));
+    }, 4200);
+  }
+
   function empilhar(linhas) {
     setLog((x) => [...x, ...linhas].slice(-MAX_LOG));
+
+    // Som
     for (const linha of linhas) {
       const s = somDeLinha(linha.tipo);
       if (s) { tocar(s); break; }
     }
+
+    // Toasts: pega só a PRIMEIRA linha "notificável" do lote
+    for (const linha of linhas) {
+      const cfg = TOAST_TIPOS[linha.tipo];
+      if (cfg) {
+        // Remove prefixos visuais e o texto redundante
+        let textoLimpo = linha.texto
+          .replace(/^[✦★✓✗◆🏆🎉💀⚔⚒✨⚠🌦🕐]\s*/, '')
+          .trim();
+        // Corta em 80 caracteres pra caber no toast
+        if (textoLimpo.length > 80) textoLimpo = textoLimpo.slice(0, 77) + '...';
+        adicionarToast(textoLimpo, linha.tipo, cfg.emoji);
+        break;
+      }
+    }
   }
+
   function limparLog() { setLog([]); }
-  function mostrarToast(m) { setToast(m); window.clearTimeout(mostrarToast._t); mostrarToast._t = window.setTimeout(() => setToast(''), 2200); }
 
   async function salvar(sil = false) {
     setSalvando(true);
     try {
       const p = { ...estado, log: log.slice(-MAX_LOG), atualizadoEm: Date.now() };
       await onSalvar(p); setEstado(p);
-      if (!sil) { empilhar([{ texto: '💾 ' + t('toast.salvo'), tipo: 'sucesso' }]); mostrarToast(t('toast.salvo')); tocar('moeda'); }
+      if (!sil) {
+        empilhar([{ texto: '💾 ' + t('toast.salvo'), tipo: 'sucesso' }]);
+        adicionarToast(t('toast.salvo'), 'info', '💾');
+        tocar('moeda');
+      }
     } catch (e) {
-      empilhar([{ texto: 'Erro: ' + e.message, tipo: 'erro' }]); tocar('erro');
+      empilhar([{ texto: 'Erro: ' + e.message, tipo: 'erro' }]);
+      adicionarToast('Erro ao salvar', 'erro', '✗');
+      tocar('erro');
     } finally { setSalvando(false); }
   }
   async function carregar() {
     const d = await onCarregar();
-    if (!d) { empilhar([{ texto: 'Sem save.', tipo: 'erro' }]); tocar('erro'); return; }
+    if (!d) { empilhar([{ texto: 'Sem save.', tipo: 'erro' }]); adicionarToast('Sem save neste slot', 'erro', '✗'); tocar('erro'); return; }
     setEstado(d);
     const logCarregado = (d.log || []).slice(-MAX_LOG);
     setLog([...logCarregado, { texto: '↺ ' + t('toast.carregado'), tipo: 'sucesso' }].slice(-MAX_LOG));
-    mostrarToast(t('toast.carregado')); tocar('clique');
+    adicionarToast(t('toast.carregado'), 'info', '↺');
+    tocar('clique');
   }
   function executarComando(cmd) {
     const b = cmd.toLowerCase().trim();
@@ -256,13 +311,28 @@ function TelaJogo({
   const encArma = estado.encantamentos?.arma;
   const pontosTalento = estado.pontosTalento || 0;
 
-  // ⭐ Clima e hora
   const clima = getClima(estado.climaAtual || 'limpo');
-  const periodo = calcularPeriodo(estado.hora || 12);
-  const horaTexto = formatarHora(estado.hora || 12);
+  const periodo = calcularPeriodo(estado.hora || 6);
+  const horaTexto = formatarHora(estado.hora || 6);
 
   return (
     <div className="tela jogo">
+      {/* ⭐ Container de toasts */}
+      <div className="toast-container">
+        {toasts.map((tt) => {
+          const cfg = TOAST_TIPOS[tt.tipo] || {};
+          return (
+            <div key={tt.id} className={`toast-notif ${cfg.cor || 'toast-info'}`}>
+              <div className="toast-emoji">{tt.emoji || cfg.emoji || '◆'}</div>
+              <div className="toast-conteudo">
+                {cfg.titulo && <div className="toast-titulo">{cfg.titulo}</div>}
+                <div className="toast-texto">{tt.texto}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
       <header className="status-bar">
         <div className="status-linha">
           <span className="tag nome">
@@ -283,7 +353,6 @@ function TelaJogo({
           <div className="barra"><div className="barra-preenchimento xp" style={{ width: `${pctXp}%` }} /><span className="barra-texto">XP {estado.xp}/{estado.xpProx}</span></div>
         </div>
 
-        {/* ⭐ Clima e hora */}
         <div className="faixa-tempo">
           <span className={`tempo-tag ${clima.cor || ''}`} title={clima.desc}>{clima.emoji} {clima.nome}</span>
           <span className={`tempo-tag ${periodo.cor || ''}`} title={periodo.desc}>{periodo.emoji} {periodo.nome}</span>
@@ -385,8 +454,6 @@ function TelaJogo({
         <button onClick={onVoltarSlots}>{t('barra.slots')}</button>
         <button onClick={onSair}>{t('barra.sair')}</button>
       </nav>
-
-      {toast && <div className="toast">{toast}</div>}
     </div>
   );
 }
