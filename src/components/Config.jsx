@@ -5,6 +5,7 @@ import { jaInstalado, instalar } from '../pwa.js';
 export default function Config({
   idioma, setarIdioma,
   som, setarSom,
+  ambiente, setarAmbiente,
   volume, setarVolume,
   musica, setarMusica,
   tema, setarTema,
@@ -59,6 +60,13 @@ export default function Config({
             <label>{t('config.som')}</label>
             <button className={som ? 'btn-toggle on' : 'btn-toggle'} onClick={() => setarSom(!som)}>
               {som ? t('config.sim') : t('config.nao')}
+            </button>
+          </div>
+
+          <div className="config-linha">
+            <label>{t('config.ambiente')}</label>
+            <button className={ambiente ? 'btn-toggle on' : 'btn-toggle'} onClick={() => setarAmbiente(!ambiente)}>
+              {ambiente ? t('config.sim') : t('config.nao')}
             </button>
           </div>
 

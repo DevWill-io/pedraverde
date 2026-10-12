@@ -370,3 +370,451 @@ export function pararMusica() {
 export function musicaEstaAtiva() {
   return musicaAtiva;
 }
+
+/* ================================================================== */
+/* SONS AMBIENTAIS POR BIOMA                                           */
+/* ================================================================== */
+/*
+  Cada região tem um perfil de ambiente com:
+    • vento base contínuo (filtro modulado)
+    • eventos aleatórios (pássaros, gotas, sapos, ondas, etc.)
+*/
+
+let ambienteHabilitado = true;
+let ambienteAtivo = false;
+let ambienteNodes = null;
+let ambienteTimer = null;
+let ambientePerfil = null;
+let ambienteGain = null;
+
+/* Gain node dedicado do ambiente (separado dos efeitos e da música) */
+function getAmbienteGain(c) {
+  if (ambienteGain && ambienteGain.context === c) return ambienteGain;
+  ambienteGain = c.createGain();
+  ambienteGain.gain.value = ambienteHabilitado ? volume * 0.35 : 0;
+  ambienteGain.connect(c.destination);
+  return ambienteGain;
+}
+
+/* Atualiza o volume do ambiente em tempo real */
+export function setAmbienteVolume(v) {
+  if (ambienteGain && ambienteGain.context) {
+    const agora = ambienteGain.context.currentTime;
+    ambienteGain.gain.setTargetAtTime(
+      ambienteHabilitado ? v * 0.35 : 0,
+      agora,
+      0.15,
+    );
+  }
+}
+
+export function setAmbienteHabilitado(v) {
+  ambienteHabilitado = !!v;
+  if (ambienteGain && ambienteGain.context) {
+    const agora = ambienteGain.context.currentTime;
+    ambienteGain.gain.setTargetAtTime(
+      ambienteHabilitado && ambienteAtivo ? volume * 0.35 : 0,
+      agora,
+      0.3,
+    );
+  }
+  // Se desabilitado, para completamente
+  if (!ambienteHabilitado) {
+    pararAmbiente();
+  }
+}
+
+export function isAmbienteHabilitado() { return ambienteHabilitado; }
+export function isAmbienteAtivo() { return ambienteAtivo; }
+
+/* Cria vento contínuo com filtro modulado */
+function criarVento(c, intensidade) {
+  const bufferSize = c.sampleRate * 3;
+  const buffer = c.createBuffer(1, bufferSize, c.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = (Math.random() * 2 - 1) * 0.5;
+  }
+
+  const src = c.createBufferSource();
+  src.buffer = buffer;
+  src.loop = true;
+
+  const filtro = c.createBiquadFilter();
+  filtro.type = 'bandpass';
+  filtro.frequency.value = 400 + intensidade * 500;
+  filtro.Q.value = 0.8;
+
+  // LFO que modula a frequência (som de rajadas)
+  const lfo = c.createOscillator();
+  lfo.type = 'sine';
+  lfo.frequency.value = 0.08 + Math.random() * 0.07;
+
+  const lfoGain = c.createGain();
+  lfoGain.gain.value = 200 + intensidade * 300;
+
+  lfo.connect(lfoGain);
+  lfoGain.connect(filtro.frequency);
+
+  // Gain que dá volume proporcional
+  const gain = c.createGain();
+  gain.gain.value = 0.08 + intensidade * 0.18;
+
+  src.connect(filtro);
+  filtro.connect(gain);
+
+  src.start();
+  lfo.start();
+
+  return { src, lfo, filtro, gain };
+}
+
+/* Eventos sonoros */
+function tocarEvento(c, tipo, gainNode) {
+  const agora = c.currentTime;
+
+  const criarNota = (freqIni, freqFim, dur, tipo, vol) => {
+    const osc = c.createOscillator();
+    const g = c.createGain();
+    osc.type = tipo;
+    osc.frequency.setValueAtTime(freqIni, agora);
+    osc.frequency.exponentialRampToValueAtTime(freqFim, agora + dur);
+    g.gain.setValueAtTime(0, agora);
+    g.gain.linearRampToValueAtTime(vol, agora + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.001, agora + dur);
+    osc.connect(g);
+    g.connect(gainNode);
+    osc.start(agora);
+    osc.stop(agora + dur + 0.05);
+  };
+
+  const criarRuido = (dur, vol, filtroFreq, tipo = 'lowpass') => {
+    const len = Math.floor(c.sampleRate * dur);
+    const buf = c.createBuffer(1, len, c.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) {
+      d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2);
+    }
+    const src = c.createBufferSource();
+    src.buffer = buf;
+    const f = c.createBiquadFilter();
+    f.type = tipo;
+    f.frequency.value = filtroFreq;
+    const g = c.createGain();
+    g.gain.value = vol;
+    src.connect(f);
+    f.connect(g);
+    g.connect(gainNode);
+    src.start();
+  };
+
+  switch (tipo) {
+    case 'passaro': {
+      const base = 2200 + Math.random() * 1800;
+      const n = 2 + Math.floor(Math.random() * 3);
+      for (let i = 0; i < n; i++) {
+        const delay = i * (0.06 + Math.random() * 0.04);
+        const osc = c.createOscillator();
+        const g = c.createGain();
+        const t = agora + delay;
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(base, t);
+        osc.frequency.linearRampToValueAtTime(base + 400 + Math.random() * 300, t + 0.04);
+        osc.frequency.linearRampToValueAtTime(base - 200, t + 0.08);
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(0.09, t + 0.005);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+        osc.connect(g);
+        g.connect(gainNode);
+        osc.start(t);
+        osc.stop(t + 0.12);
+      }
+      break;
+    }
+    case 'galinha': {
+      const base = 800 + Math.random() * 300;
+      const osc = c.createOscillator();
+      const g = c.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(base, agora);
+      osc.frequency.linearRampToValueAtTime(base * 1.5, agora + 0.08);
+      osc.frequency.linearRampToValueAtTime(base * 0.7, agora + 0.18);
+      g.gain.setValueAtTime(0, agora);
+      g.gain.linearRampToValueAtTime(0.07, agora + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.001, agora + 0.22);
+      osc.connect(g);
+      g.connect(gainNode);
+      osc.start(agora);
+      osc.stop(agora + 0.25);
+      break;
+    }
+    case 'coruja': {
+      const base = 400 + Math.random() * 100;
+      for (let i = 0; i < 2; i++) {
+        const t = agora + i * 0.5;
+        const osc = c.createOscillator();
+        const g = c.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(base, t);
+        osc.frequency.linearRampToValueAtTime(base * 1.2, t + 0.15);
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(0.08, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+        osc.connect(g);
+        g.connect(gainNode);
+        osc.start(t);
+        osc.stop(t + 0.4);
+      }
+      break;
+    }
+    case 'corvo': {
+      const base = 600 + Math.random() * 200;
+      for (let i = 0; i < 2; i++) {
+        const t = agora + i * 0.25;
+        const osc = c.createOscillator();
+        const g = c.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(base, t);
+        osc.frequency.linearRampToValueAtTime(base * 0.6, t + 0.12);
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(0.06, t + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+        osc.connect(g);
+        g.connect(gainNode);
+        osc.start(t);
+        osc.stop(t + 0.18);
+      }
+      break;
+    }
+    case 'sapo': {
+      const base = 180 + Math.random() * 80;
+      for (let i = 0; i < 3; i++) {
+        const t = agora + i * 0.12;
+        const osc = c.createOscillator();
+        const g = c.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(base, t);
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(0.08, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+        osc.connect(g);
+        g.connect(gainNode);
+        osc.start(t);
+        osc.stop(t + 0.15);
+      }
+      break;
+    }
+    case 'grilo': {
+      const base = 4500 + Math.random() * 800;
+      for (let i = 0; i < 6; i++) {
+        const t = agora + i * 0.04;
+        const osc = c.createOscillator();
+        const g = c.createGain();
+        osc.type = 'triangle';
+        osc.frequency.value = base;
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(0.04, t + 0.005);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
+        osc.connect(g);
+        g.connect(gainNode);
+        osc.start(t);
+        osc.stop(t + 0.05);
+      }
+      break;
+    }
+    case 'gota': {
+      const osc = c.createOscillator();
+      const g = c.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(900 + Math.random() * 400, agora);
+      osc.frequency.exponentialRampToValueAtTime(300, agora + 0.15);
+      g.gain.setValueAtTime(0, agora);
+      g.gain.linearRampToValueAtTime(0.06, agora + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.001, agora + 0.2);
+      osc.connect(g);
+      g.connect(gainNode);
+      osc.start(agora);
+      osc.stop(agora + 0.25);
+      break;
+    }
+    case 'galho': {
+      criarRuido(0.15, 0.08, 1800, 'highpass');
+      break;
+    }
+    case 'onda': {
+      criarRuido(1.2, 0.09, 900, 'lowpass');
+      break;
+    }
+    case 'gaivota': {
+      const base = 1400 + Math.random() * 400;
+      for (let i = 0; i < 2; i++) {
+        const t = agora + i * 0.35;
+        const osc = c.createOscillator();
+        const g = c.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(base, t);
+        osc.frequency.linearRampToValueAtTime(base * 0.8, t + 0.15);
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(0.05, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+        osc.connect(g);
+        g.connect(gainNode);
+        osc.start(t);
+        osc.stop(t + 0.3);
+      }
+      break;
+    }
+    case 'sino_navio': {
+      const base = 300;
+      [base, base * 2.2, base * 3.6].forEach((f, i) => {
+        const osc = c.createOscillator();
+        const g = c.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = f;
+        g.gain.setValueAtTime(0, agora);
+        g.gain.linearRampToValueAtTime(0.06 / (i + 1), agora + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.001, agora + 1.5);
+        osc.connect(g);
+        g.connect(gainNode);
+        osc.start(agora);
+        osc.stop(agora + 1.6);
+      });
+      break;
+    }
+    case 'vento_forte': {
+      criarRuido(2.5, 0.12, 700, 'bandpass');
+      break;
+    }
+    case 'areia': {
+      criarRuido(1.8, 0.06, 2500, 'highpass');
+      break;
+    }
+    case 'gelo': {
+      const base = 1800 + Math.random() * 1000;
+      const osc = c.createOscillator();
+      const g = c.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(base, agora);
+      osc.frequency.exponentialRampToValueAtTime(base * 0.5, agora + 0.3);
+      g.gain.setValueAtTime(0, agora);
+      g.gain.linearRampToValueAtTime(0.04, agora + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.001, agora + 0.4);
+      osc.connect(g);
+      g.connect(gainNode);
+      osc.start(agora);
+      osc.stop(agora + 0.5);
+      break;
+    }
+    case 'tocha': {
+      criarRuido(0.25, 0.1, 1200, 'bandpass');
+      break;
+    }
+    case 'corrente': {
+      criarRuido(0.4, 0.06, 800, 'bandpass');
+      setTimeout(() => criarRuido(0.3, 0.05, 1000, 'bandpass'), 80);
+      break;
+    }
+    case 'carrinho': {
+      const base = 120 + Math.random() * 40;
+      for (let i = 0; i < 4; i++) {
+        const t = agora + i * 0.12;
+        const osc = c.createOscillator();
+        const g = c.createGain();
+        osc.type = 'square';
+        osc.frequency.value = base;
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(0.04, t + 0.005);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+        osc.connect(g);
+        g.connect(gainNode);
+        osc.start(t);
+        osc.stop(t + 0.06);
+      }
+      break;
+    }
+  }
+}
+
+/* Agenda o próximo evento sonoro */
+function agendarEvento() {
+  if (!ambienteAtivo || !ambientePerfil) return;
+  const c = getCtx();
+  if (!c) return;
+  const gain = getAmbienteGain(c);
+
+  const [minS, maxS] = ambientePerfil.intervalo || [3, 7];
+  const delay = (minS + Math.random() * (maxS - minS)) * 1000;
+
+  ambienteTimer = setTimeout(() => {
+    if (!ambienteAtivo || !ambientePerfil) return;
+    const eventos = ambientePerfil.eventos || [];
+    if (eventos.length) {
+      const ev = eventos[Math.floor(Math.random() * eventos.length)];
+      try { tocarEvento(c, ev, gain); } catch {}
+    }
+    agendarEvento();
+  }, delay);
+}
+
+/* Inicia ambiente para uma região */
+export function iniciarAmbiente(perfilId) {
+  const c = getCtx();
+  if (!c) return;
+
+  // Já está tocando o mesmo perfil? Não faz nada
+  if (ambienteAtivo && ambientePerfil?.id === perfilId) return;
+
+  // Para o anterior (se houver)
+  pararAmbiente();
+
+  // Importa o perfil dinamicamente
+  import('../content/ambientes.js').then(({ getAmbiente }) => {
+    if (!c) return;
+    ambientePerfil = getAmbiente(perfilId);
+    ambienteAtivo = true;
+
+    const gain = getAmbienteGain(c);
+    gain.gain.setTargetAtTime(
+      ambienteHabilitado ? volume * 0.35 : 0,
+      c.currentTime,
+      0.6,
+    );
+
+    // Cria vento contínuo
+    ambienteNodes = criarVento(c, ambientePerfil.vento);
+    ambienteNodes.src.connect(gain);
+    // (o gain interno do vento já está ligado ao filtro)
+    ambienteNodes.gain.disconnect();
+    ambienteNodes.gain.connect(gain);
+
+    // Agenda eventos
+    agendarEvento();
+  }).catch(() => {});
+}
+
+/* Para o ambiente atual */
+export function pararAmbiente() {
+  ambienteAtivo = false;
+  if (ambienteTimer) {
+    clearTimeout(ambienteTimer);
+    ambienteTimer = null;
+  }
+  const c = getCtx();
+  if (ambienteNodes && c) {
+    const agora = c.currentTime;
+    const g = ambienteNodes.gain;
+    if (g) {
+      try {
+        g.gain.setTargetAtTime(0, agora, 0.4);
+      } catch {}
+    }
+    const src = ambienteNodes.src;
+    const lfo = ambienteNodes.lfo;
+    setTimeout(() => {
+      try { src?.stop(); } catch {}
+      try { lfo?.stop(); } catch {}
+    }, 1200);
+    ambienteNodes = null;
+  }
+  ambientePerfil = null;
+}

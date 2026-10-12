@@ -14,6 +14,7 @@ import { tocar, somDeLinha } from '../audio.js';
 import { chatDisponivel, rankingDisponivel } from '../chat.js';
 import { PREFIXOS } from '../constants/prefixos.js';
 import { TOAST_TIPOS } from '../constants/toasts.js';
+import { iniciarAmbiente, pararAmbiente } from '../audio.js';
 
 const MAX_LOG = 1000;
 const ACOES_COMBATE_RAPIDAS = ['atacar', 'forte', 'rapido', 'defender', 'esquivar', 'focar', 'fugir'];
@@ -40,6 +41,18 @@ export default function TelaJogo({
     const el = logRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [log]);
+
+    /* ⭐ Sons ambientais por bioma */
+  useEffect(() => {
+    const regiao = MUNDO[estado.local]?.regiao || 'vila';
+    iniciarAmbiente(regiao);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estado.local]);
+
+  /* Para o ambiente quando sair do jogo */
+  useEffect(() => {
+    return () => pararAmbiente();
+  }, []);
 
   useEffect(() => {
     if (!estadoInicial.log?.length) {

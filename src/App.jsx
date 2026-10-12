@@ -21,6 +21,7 @@ import Chat from './components/Chat.jsx';
 import Ranking from './components/Ranking.jsx';
 import TelaCriacao from './components/TelaCriacao.jsx';
 import TelaJogo from './components/TelaJogo.jsx';
+import { setAmbienteHabilitado, setAmbienteVolume } from './audio.js';
 
 export default function App() {
   const [carregando, setCarregando] = useState(true);
@@ -39,15 +40,18 @@ export default function App() {
   const [volume, setVolumeState] = useState(typeof cfg.volume === 'number' ? cfg.volume : 0.5);
   const [musica, setMusica] = useState(!!cfg.musica);
   const [tema, setTema] = useState(cfg.tema || 'escuro');
+  const [ambiente, setAmbiente] = useState(cfg.ambiente !== false);
   const [temPromptInstalar, setTemPromptInstalar] = useState(false);
 
   /* Aplica config */
   useEffect(() => {
     setSomHabilitado(som);
     setVolume(volume);
-    gravarConfig({ idioma, som, volume, musica, tema });
+    setAmbienteHabilitado(ambiente);   // ⭐ NOVO
+    setAmbienteVolume(volume);         // ⭐ NOVO
+    gravarConfig({ idioma, som, ambiente, volume, musica, tema });  // incluir ambiente
     document.documentElement.setAttribute('data-tema', tema);
-  }, [idioma, som, volume, musica, tema]);
+  }, [idioma, som, ambiente, volume, musica, tema]);
 
   useEffect(() => { gravarIdioma(idioma); }, [idioma]);
   useEffect(() => { ouvirPromptInstalar(setTemPromptInstalar); }, []);
@@ -202,10 +206,16 @@ export default function App() {
         <Config
           idioma={idioma}
           setarIdioma={setIdioma}
-          som={som} setarSom={setSom}
-          volume={volume} setarVolume={setVolumeState}
-          musica={musica} setarMusica={setMusica}
-          tema={tema} setarTema={setTema}
+          som={som}
+          setarSom={setSom}
+          ambiente={ambiente}              // ⭐ NOVO
+          setarAmbiente={setAmbiente}      // ⭐ NOVO
+          volume={volume}
+          setarVolume={setVolumeState}
+          musica={musica}
+          setarMusica={setMusica}
+          tema={tema}
+          setarTema={setTema}
           temPromptInstalar={temPromptInstalar}
           onFechar={() => setMostrarConfig(false)}
         />
