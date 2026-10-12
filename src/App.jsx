@@ -24,7 +24,7 @@ import Config from './components/Config.jsx';
 import Chat from './components/Chat.jsx';
 import Ranking from './components/Ranking.jsx';
 
-const MAX_LOG = 25;
+const MAX_LOG = 100;
 
 const ACOES_COMBATE_RAPIDAS = ['atacar', 'forte', 'rapido', 'defender', 'esquivar', 'focar', 'fugir'];
 
