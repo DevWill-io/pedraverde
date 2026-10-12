@@ -1,6 +1,8 @@
 // src/audio.js
 /* Sons e música gerados via Web Audio API — nenhum arquivo MP3. */
 
+import { getAmbiente } from './content/ambientes.js';
+
 let ctx = null;
 let habilitado = true;
 let volume = 0.5;
@@ -767,29 +769,25 @@ export function iniciarAmbiente(perfilId) {
   // Para o anterior (se houver)
   pararAmbiente();
 
-  // Importa o perfil dinamicamente
-  import('../content/ambientes.js').then(({ getAmbiente }) => {
-    if (!c) return;
-    ambientePerfil = getAmbiente(perfilId);
-    ambienteAtivo = true;
+  ambientePerfil = getAmbiente(perfilId);
+  ambienteAtivo = true;
 
-    const gain = getAmbienteGain(c);
-    gain.gain.setTargetAtTime(
-      ambienteHabilitado ? volume * 0.35 : 0,
-      c.currentTime,
-      0.6,
-    );
+  const gain = getAmbienteGain(c);
+  gain.gain.setTargetAtTime(
+    ambienteHabilitado ? volume * 0.35 : 0,
+    c.currentTime,
+    0.6,
+  );
 
-    // Cria vento contínuo
-    ambienteNodes = criarVento(c, ambientePerfil.vento);
-    ambienteNodes.src.connect(gain);
-    // (o gain interno do vento já está ligado ao filtro)
-    ambienteNodes.gain.disconnect();
-    ambienteNodes.gain.connect(gain);
+  // Cria vento contínuo
+  ambienteNodes = criarVento(c, ambientePerfil.vento);
+  ambienteNodes.src.connect(gain);
+  // (o gain interno do vento já está ligado ao filtro)
+  ambienteNodes.gain.disconnect();
+  ambienteNodes.gain.connect(gain);
 
-    // Agenda eventos
-    agendarEvento();
-  }).catch(() => {});
+  // Agenda eventos
+  agendarEvento();
 }
 
 /* Para o ambiente atual */
