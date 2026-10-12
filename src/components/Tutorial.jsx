@@ -7,6 +7,8 @@ const SECOES = [
   { id: 'comandos', titulo: 'Comandos', emoji: '⌨' },
   { id: 'combate', titulo: 'Combate', emoji: '⚔' },
   { id: 'magias', titulo: 'Magias', emoji: '🔮' },
+  { id: 'talentos', titulo: 'Talentos', emoji: '🌟' },
+  { id: 'conquistas', titulo: 'Conquistas', emoji: '🏆' },
   { id: 'crafting', titulo: 'Crafting', emoji: '⚒' },
   { id: 'mapa', titulo: 'Mapa', emoji: '🗺' },
   { id: 'progressao', titulo: 'Progressão', emoji: '📈' },
@@ -42,6 +44,8 @@ export default function Tutorial({ onVoltar }) {
         {secaoAtiva === 'comandos' && <SecaoComandos />}
         {secaoAtiva === 'combate' && <SecaoCombate />}
         {secaoAtiva === 'magias' && <SecaoMagias />}
+        {secaoAtiva === 'talentos' && <SecaoTalentos />}
+        {secaoAtiva === 'conquistas' && <SecaoConquistas />}
         {secaoAtiva === 'crafting' && <SecaoCrafting />}
         {secaoAtiva === 'mapa' && <SecaoMapa />}
         {secaoAtiva === 'progressao' && <SecaoProgressao />}
@@ -67,6 +71,8 @@ function SecaoBoasVindas() {
         <li>Explora um mundo com <strong>9 regiões</strong> e <strong>35+ locais</strong></li>
         <li>Enfrenta <strong>23 tipos de inimigos</strong>, incluindo <strong>12 chefes</strong></li>
         <li>Coleta itens, forja equipamentos, aprende magias</li>
+        <li>Escolhe <strong>talentos</strong> a cada 5 níveis</li>
+        <li>Desbloqueia <strong>conquistas</strong> e <strong>títulos</strong></li>
         <li>Sobe de nível, completa quests e derrota o <strong>Rei Antigo</strong></li>
       </ul>
 
@@ -79,6 +85,8 @@ function SecaoBoasVindas() {
         <li><span className="tut-prefixo vermelho">✗</span> Erro ou dano recebido</li>
         <li><span className="tut-prefixo amarelo">⚔</span> Combate, dano causado</li>
         <li><span className="tut-prefixo roxo">✦</span> Magia, level up, loot raro</li>
+        <li><span className="tut-prefixo amarelo">🏆</span> Conquista desbloqueada</li>
+        <li><span className="tut-prefixo amarelo">★</span> Talento disponível</li>
       </ul>
 
       <h3>Primeiros passos</h3>
@@ -91,7 +99,7 @@ function SecaoBoasVindas() {
       </ol>
 
       <div className="tut-dica">
-        <strong>💡 Dica:</strong> a qualquer momento você pode clicar nos <em>chips</em> abaixo do log para preencher automaticamente o comando.
+        <strong>💡 Dica:</strong> a qualquer momento você pode clicar nos <em>chips</em> abaixo do log para preencher automaticamente o comando. Aperte <strong>↑</strong> e <strong>↓</strong> para navegar pelo histórico.
       </div>
     </div>
   );
@@ -159,6 +167,7 @@ function SecaoComandos() {
       <table className="tut-tabela">
         <tbody>
           <tr><td><code>inventario</code></td><td>Lista seus itens</td></tr>
+          <tr><td><code>examinar &lt;item&gt;</code></td><td>Detalhes completos de um item</td></tr>
           <tr><td><code>equipar &lt;item&gt;</code></td><td>Equipa arma/armadura (8 slots)</td></tr>
           <tr><td><code>desequipar &lt;slot&gt;</code></td><td>Remove item equipado</td></tr>
           <tr><td><code>usar &lt;item&gt;</code></td><td>Usa consumível (poção, comida, pergaminho)</td></tr>
@@ -171,8 +180,8 @@ function SecaoComandos() {
         <tbody>
           <tr><td><code>falar</code></td><td>Conversa com o NPC do local</td></tr>
           <tr><td><code>loja</code></td><td>Abre a loja do local</td></tr>
-          <tr><td><code>comprar &lt;item&gt;</code></td><td>Compra item (preço cheio)</td></tr>
-          <tr><td><code>vender &lt;item&gt;</code></td><td>Vende item (metade do preço)</td></tr>
+          <tr><td><code>comprar &lt;item|número&gt;</code></td><td>Compra item (preço cheio)</td></tr>
+          <tr><td><code>vender &lt;item|número&gt;</code></td><td>Vende item (metade do preço)</td></tr>
         </tbody>
       </table>
 
@@ -181,6 +190,10 @@ function SecaoComandos() {
         <tbody>
           <tr><td><code>quests</code></td><td>Lista quests ativas, disponíveis e completas</td></tr>
           <tr><td><code>aceitar &lt;título&gt;</code></td><td>Aceita uma quest</td></tr>
+          <tr><td><code>talentos</code></td><td>Mostra a árvore de talentos da sua classe</td></tr>
+          <tr><td><code>escolher &lt;nível&gt; &lt;1|2&gt;</code></td><td>Escolhe um talento</td></tr>
+          <tr><td><code>conquistas</code></td><td>Catálogo de conquistas e títulos</td></tr>
+          <tr><td><code>titulo &lt;nome&gt;</code></td><td>Equipa um título</td></tr>
           <tr><td><code>bestiario</code></td><td>Catálogo de inimigos que você já matou</td></tr>
           <tr><td><code>diario</code></td><td>Estatísticas completas da sua jornada</td></tr>
         </tbody>
@@ -191,6 +204,7 @@ function SecaoComandos() {
         <tbody>
           <tr><td><code>salvar</code></td><td>Salva no slot atual (local + nuvem)</td></tr>
           <tr><td><code>carregar</code></td><td>Carrega o slot atual</td></tr>
+          <tr><td><code>limpar</code></td><td>Limpa o log</td></tr>
           <tr><td><code>sair</code></td><td>Despedida</td></tr>
           <tr><td><code>tutorial</code></td><td>Abre esta tela de ajuda</td></tr>
         </tbody>
@@ -233,13 +247,37 @@ function SecaoCombate() {
         <li><strong>Turno 3:</strong> <code>forte</code> — dano ×1.5 com crítico = devastador</li>
       </ol>
 
-      <h3>Inimigos inteligentes</h3>
+      <h3>IA Reativa</h3>
+      <p>Os inimigos <strong>veem o que você fez</strong> e respondem:</p>
       <ul>
-        <li>Se o inimigo está com <strong>HP baixo</strong> (&lt;30%), ele tende a se <em>defender</em> ou <em>esquivar</em></li>
-        <li>Se <strong>você</strong> está com HP baixo, ele fica <strong>agressivo</strong></li>
-        <li><strong>Chefes</strong> ficam <strong>ENFURECIDOS</strong> abaixo de 50% de HP (+2 ATK)</li>
-        <li>O <strong>Troll</strong> faz <em>Golpe Terra</em> (dano dobrado) a cada 3 turnos</li>
+        <li>Se você <code>focar</code>, ele tem <strong>65% de chance de defender</strong> (a jogada certa)</li>
+        <li>Se você <code>defender</code>, ele pode <strong>focar</strong> para quebrar sua defesa</li>
+        <li>Se você <code>esquivar</code>, ele tenta <strong>atacar</strong> mais vezes</li>
+        <li>Se você <code>usar</code> item, ele <strong>aproveita a brecha</strong> e ataca</li>
       </ul>
+
+      <h3>Arquétipos de inimigo</h3>
+      <ul>
+        <li><strong>Agressivo</strong> (lobo, bandido, pirata): ataca sempre, raramente defende</li>
+        <li><strong>Defensivo</strong> (golem, guarda): defende e esquiva muito</li>
+        <li><strong>Tático</strong> (goblin, esqueleto): equilibrado, usa focar</li>
+        <li><strong>Bestial</strong> (rato, aranha): imprevisível</li>
+        <li><strong>Mágico</strong> (cultista, mago negro): foca e usa ataques mágicos</li>
+      </ul>
+
+      <h3>Chefes com padrões únicos</h3>
+      <ul>
+        <li><strong>Troll:</strong> <code>atacar → atacar → GOLPE TERRA</code> (dano ×2 a cada 3 turnos)</li>
+        <li><strong>Bruxa:</strong> conjura <em>Magia Sombria</em> e se cura com <em>Cura Sombria</em></li>
+        <li><strong>Dragão Ancião:</strong> exala <em>Sopro de Fogo</em> (aplica queimadura)</li>
+        <li><strong>Múmia:</strong> lança <em>Maldição</em> (fraqueza + sangramento)</li>
+        <li><strong>Rei Antigo:</strong> rotação complexa de 5 ações diferentes</li>
+      </ul>
+
+      <p>Chefes <strong>ENFURECEM</strong> abaixo de 50% de HP (+2 ATK em todos os golpes).</p>
+
+      <h3>Inimigos fogem</h3>
+      <p>Inimigos não-chefes têm <strong>35% de chance de fugir</strong> com HP abaixo de 20%. Você ganha 30% do XP pela escaramuça.</p>
 
       <div className="tut-dica">
         <strong>💡 Dica:</strong> economize poções para emergências. Se HP cair muito, use <code>usar pocao</code> em vez de atacar — ainda vale a pena.
@@ -283,6 +321,111 @@ function SecaoMagias() {
 
       <div className="tut-dica">
         <strong>💡 Dica:</strong> magias que ignoram DEF são ótimas contra inimigos com DEF alta (golems, cavaleiros). Magias com chance de atordoar/congelar fazem o inimigo <em>perder o turno</em> — combinado com <code>focar</code> + <code>forte</code>, é devastador.
+      </div>
+    </div>
+  );
+}
+
+function SecaoTalentos() {
+  return (
+    <div className="tut-secao">
+      <h2>🌟 Talentos</h2>
+      <p>A partir do nível <strong>5</strong>, você ganha <strong>1 ponto de talento a cada 5 níveis</strong> (Nv 5, 10, 15, 20). Cada ponto permite escolher 1 de 2 talentos exclusivos da sua classe.</p>
+
+      <h3>Comandos</h3>
+      <table className="tut-tabela">
+        <tbody>
+          <tr><td><code>talentos</code></td><td>Mostra a árvore de talentos da sua classe</td></tr>
+          <tr><td><code>escolher &lt;nível&gt; &lt;1|2&gt;</code></td><td>Escolhe um talento. Ex: <code>escolher 5 1</code></td></tr>
+          <tr><td><code>escolher &lt;id do talento&gt;</code></td><td>Alternativa. Ex: <code>escolher furia</code></td></tr>
+        </tbody>
+      </table>
+
+      <h3>Exemplos por classe</h3>
+      <table className="tut-tabela">
+        <thead>
+          <tr><th>Classe</th><th>Talentos de Nv 5</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>⚔ Guerreiro</td><td>🔥 Fúria (+50% dano com HP baixo) <em>ou</em> 🛡 Resistência (+4 DEF)</td></tr>
+          <tr><td>🔮 Mago</td><td>🌀 Metamagia (magias -20% MP) <em>ou</em> 🎯 Foco Arcano (+3 dano mágico)</td></tr>
+          <tr><td>🗡 Ladino</td><td>👤 Furtividade (+4 DEF) <em>ou</em> 🗡 Assassino (crítico 3×)</td></tr>
+          <tr><td>✨ Clérigo</td><td>🙏 Fé (curas +30%) <em>ou</em> ⚖ Julgamento (+50% vs mortos-vivos)</td></tr>
+          <tr><td>🏹 Arqueiro</td><td>🏹 Tiro Rápido (20% de 2 ataques) <em>ou</em> 🎯 Mira Letal (+5 ATK)</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Tipos de talento</h3>
+      <ul>
+        <li><strong>Bônus diretos:</strong> +ATK, +DEF, +HP, +MP (permanentes)</li>
+        <li><strong>Comportamentos:</strong> chances de atacar duas vezes, esquivar mais, regenerar, etc.</li>
+        <li><strong>Efeitos únicos:</strong> Fúria (dano maior com HP baixo), Assassino (crítico 3×), Segunda Chance (revive uma vez)</li>
+      </ul>
+
+      <h3>Como saber quando há ponto disponível</h3>
+      <ul>
+        <li>No header, aparece um badge <strong>★ 1</strong> (pulsando)</li>
+        <li>Na barra de atalhos, aparece o chip <strong>★ talentos</strong></li>
+        <li>No log, aparece <em>"★ Você ganhou 1 ponto de talento!"</em></li>
+      </ul>
+
+      <div className="tut-dica">
+        <strong>💡 Dica:</strong> não existe talento "errado". Eles mudam o <strong>estilo de jogo</strong>. Fúria faz você arriscar mais com HP baixo. Resistência te torna um tanque. A escolha depende do que você gosta.
+      </div>
+    </div>
+  );
+}
+
+function SecaoConquistas() {
+  return (
+    <div className="tut-secao">
+      <h2>🏆 Conquistas e Títulos</h2>
+      <p>Você desbloqueia <strong>45 conquistas</strong> ao cumprir marcos do jogo. Cada uma dá um <strong>bônus permanente</strong> (ATK, DEF, HP ou MP) — então quanto mais você joga, mais forte fica.</p>
+
+      <h3>Comandos</h3>
+      <table className="tut-tabela">
+        <tbody>
+          <tr><td><code>conquistas</code></td><td>Lista todas as conquistas e progresso</td></tr>
+          <tr><td><code>titulo &lt;nome&gt;</code></td><td>Equipa um título (ex: <code>titulo Lenda</code>)</td></tr>
+          <tr><td><code>titulo nenhum</code></td><td>Remove o título atual</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Categorias</h3>
+      <table className="tut-tabela">
+        <thead>
+          <tr><th>Categoria</th><th>Exemplos</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>📈 Progressão</td><td>Aprendiz, Veterano, Lenda, Imortal (por nível)</td></tr>
+          <tr><td>⚔ Combate</td><td>Primeiro Sangue, Caçador, Exterminador (por kills)</td></tr>
+          <tr><td>👑 Chefes</td><td>Matador de Trolls, Matador de Dragões, Lenda de Pedraverde</td></tr>
+          <tr><td>🗺 Exploração</td><td>Andarilho, Explorador, Conquistador (locais visitados)</td></tr>
+          <tr><td>🎒 Itens</td><td>Colecionador, Bem Equipado, Forjador</td></tr>
+          <tr><td>💰 Economia</td><td>Bolso Cheio, Rico, Magnata, Tesoureiro</td></tr>
+          <tr><td>🎲 Eventos</td><td>Aventureiro, Fênix, Árvore Completa</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Títulos</h3>
+      <p>Algumas conquistas desbloqueiam <strong>títulos</strong> que você pode equipar. O título aparece ao lado do seu nome no header e dá status. Exemplos:</p>
+      <ul>
+        <li>⚔ <em>Veterano</em> — nível 10</li>
+        <li>🏆 <em>Herói</em> — nível 15</li>
+        <li>👑 <em>Lenda</em> — nível 20</li>
+        <li>🐉 <em>Matador de Dragões</em> — derrote o Dragão Ancião</li>
+        <li>🏰 <em>Lenda de Pedraverde</em> — derrote o Rei Antigo</li>
+        <li>🌟 <em>Imortal</em> — nível 50</li>
+      </ul>
+
+      <h3>Notificação</h3>
+      <p>Ao desbloquear uma conquista, aparece no log:</p>
+      <p><span style={{ color: '#ffd166' }}>🏆 Conquista desbloqueada: 🐉 Matador de Dragões</span></p>
+      <p><span style={{ color: '#8fa4b8' }}>   Derrote o Dragão Ancião.</span></p>
+      <p><span style={{ color: '#7ee787' }}>   Bônus: +10 ATK · +6 DEF</span></p>
+
+      <div className="tut-dica">
+        <strong>💡 Dica:</strong> veja as conquistas "🔒 bloqueadas" para ter objetivos. Cada uma é um desafio — matar 500 inimigos, visitar todos os 30+ locais, acumular 10.000 moedas. Elas te dão algo pra fazer depois do jogo principal.
       </div>
     </div>
   );
@@ -381,6 +524,14 @@ function SecaoMapa() {
         <li><strong>☠✓</strong> — chefe já derrotado</li>
       </ul>
 
+      <h3>Save export / import</h3>
+      <p>Na tela de <strong>Slots</strong>, cada save tem:</p>
+      <ul>
+        <li><strong>↓ exportar</strong> — baixa um arquivo <code>.json</code> com o save completo</li>
+        <li><strong>↑ importar</strong> — sobe um arquivo <code>.json</code> para o slot</li>
+      </ul>
+      <p>Útil para fazer backup, migrar entre dispositivos sem Firebase, ou compartilhar seu personagem.</p>
+
       <div className="tut-dica">
         <strong>💡 Dica:</strong> chefes <strong>não respawnam</strong> depois de derrotados. Se você quer XP, mate inimigos comuns. Se quer loot único, mate chefes.
       </div>
@@ -401,8 +552,8 @@ function SecaoProgressao() {
         <li><strong>+1 DEF</strong></li>
         <li><strong>+3 Mana máxima</strong></li>
         <li><strong>Cura total</strong></li>
+        <li><strong>+1 ponto de talento</strong> nos níveis 5, 10, 15 e 20</li>
       </ul>
-      <p>O XP necessário cresce <strong>1.5×</strong> por nível. Fica mais difícil — mas você fica mais forte.</p>
 
       <h3>Quests</h3>
       <p>Quests dão <strong>XP extra</strong> e <strong>moedas</strong>. Você aceita com <code>aceitar &lt;título&gt;</code>. O progresso é rastreado automaticamente.</p>
@@ -428,6 +579,15 @@ function SecaoProgressao() {
         <li>Ganhar <strong>50% do XP normal</strong></li>
         <li>Não ganhar loot</li>
       </ul>
+
+      <h3>Progresso de longo prazo</h3>
+      <ul>
+        <li><strong>45 conquistas</strong> em 7 categorias</li>
+        <li><strong>20 títulos</strong> para equipar</li>
+        <li><strong>40 talentos</strong> em 5 classes</li>
+        <li><strong>12 chefes</strong> para derrotar</li>
+        <li><strong>~167 itens</strong> para colecionar</li>
+      </ul>
     </div>
   );
 }
@@ -439,32 +599,39 @@ function SecaoDicas() {
 
       <h3>⚔ Guerreiro</h3>
       <p>Você tem HP e DEF altos. Use <code>defender</code> quando o inimigo focar, e <code>forte</code> quando ele estiver com HP baixo. A <strong>Investida</strong> é ótima contra inimigos com DEF alta — ela nunca erra e faz dano ×1.8.</p>
+      <p><strong>Talentos recomendados:</strong> Fúria (dano maior com HP baixo) ou Resistência (tanque puro).</p>
 
       <h3>🔮 Mago</h3>
       <p>Você tem HP baixo mas <strong>magias devastadoras</strong>. Comece com <code>bola_fogo</code> (ignora DEF), depois use <code>toque_gelido</code> para congelar e ganhar turno. Guarde MP para emergências — <code>descansar</code> recupera tudo.</p>
+      <p><strong>Talentos recomendados:</strong> Metamagia (economiza MP) ou Foco Arcano (dano mágico).</p>
 
       <h3>🗡 Ladino</h3>
       <p>Sua <strong>Adaga Venenosa</strong> combinada com <code>ataque_furtivo</code> mata inimigos fracos em um golpe. Use <code>rapido</code> para dano consistente, e <code>esquivar</code> quando o inimigo for forte.</p>
+      <p><strong>Talentos recomendados:</strong> Assassino (crítico 3×) ou Veneno Aprimorado.</p>
 
       <h3>✨ Clérigo</h3>
       <p>Você é o melhor em <strong>sustentação</strong>. Use <code>bencao</code> antes de combates difíceis (+3 ATK, +3 DEF), <code>escudo_magico</code> quando HP baixo, e <code>cura</code> para recuperar.</p>
+      <p><strong>Talentos recomendados:</strong> Fé (cura +30%) ou Julgamento (+50% vs mortos-vivos).</p>
 
       <h3>🏹 Arqueiro</h3>
       <p>Seu <code>tiro_certeiro</code> ignora DEF — perfeito contra Golems, Cavaleiros e chefes blindados. Combine com <code>focar</code> + <code>tiro_certeiro</code> para dano massivo.</p>
+      <p><strong>Talentos recomendados:</strong> Tiro Rápido (atacar 2x) ou Mira Letal (+5 ATK).</p>
 
       <h2>🎯 Dicas gerais</h2>
       <ul>
         <li><strong>Antes de chefe:</strong> enche HP/MP, leva 3+ poções, e usa <code>bencao</code> ou <code>escudo_magico</code> no primeiro turno</li>
         <li><strong>Contra chefe:</strong> o combo <code>defender</code> → <code>focar</code> → <code>forte</code> funciona sempre</li>
         <li><strong>Salve antes de explorar:</strong> sempre clique em <strong>Salvar</strong> antes de entrar em região nova</li>
+        <li><strong>Faça backup com exportar:</strong> baixa o <code>.json</code> antes de arriscar</li>
         <li><strong>Venda itens fracos:</strong> ganha metade do preço, junta moedas para poções</li>
         <li><strong>Encante a arma:</strong> +3~4 ATK faz diferença enorme do nível 5 ao 15</li>
         <li><strong>Crafting compensa:</strong> forjar é mais barato que comprar, se você coletar material</li>
-        <li><strong>Complete quests:</strong> a recompensa em XP/ouro ajuda muito a subir de nível</li>
+        <li><strong>Complete conquistas:</strong> cada uma dá bônus permanente — colecionar te torna mais forte</li>
+        <li><strong>Escolha talentos com calma:</strong> eles definem seu estilo de jogo no longo prazo</li>
       </ul>
 
       <div className="tut-dica">
-        <strong>💡 Dica final:</strong> o jogo é <em>seu</em>. Explore, teste builds, morra — não tem pressa. Quando você derrotar o <strong>Rei Antigo</strong>, você termina a campanha.
+        <strong>💡 Dica final:</strong> o jogo é <em>seu</em>. Explore, teste builds, morra — não tem pressa. Quando você derrotar o <strong>Rei Antigo</strong>, você termina a campanha. Mas as conquistas e os talentos continuam esperando por você.
       </div>
     </div>
   );

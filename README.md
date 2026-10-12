@@ -8,7 +8,7 @@ Construído com **React + Vite**, autenticação e save na nuvem via **Firebase*
 
 ## 🎮 Sobre o jogo
 
-Você cria um personagem (nome, raça e classe), explora um mundo de **9 regiões** e **35+ locais**, enfrenta **23 tipos de inimigos** (incluindo **12 chefes**), coleta itens, forja equipamentos, aprende magias, cumpre quests e tenta derrotar o **Rei Antigo** no castelo amaldiçoado.
+Você cria um personagem (nome, raça e classe), explora um mundo de **9 regiões** e **35+ locais**, enfrenta **23 tipos de inimigos** (incluindo **12 chefes**), coleta itens, forja equipamentos, aprende magias, escolhe talentos, desbloqueia conquistas e tenta derrotar o **Rei Antigo** no castelo amaldiçoado.
 
 Toda a interação acontece por **comandos de texto** digitados em um terminal colorido — como um RPG de mesa.
 
@@ -19,16 +19,32 @@ Toda a interação acontece por **comandos de texto** digitados em um terminal c
 ### 🧙 Personagem
 - **5 raças:** Humano, Elfo, Anão, Orc, Halfling
 - **5 classes:** Guerreiro, Mago, Ladino, Clérigo, Arqueiro
-- Sistema de **níveis e XP** com progressão (1.5× por nível)
+- Sistema de **níveis e XP** com curva suave
 - **HP, Mana, ATK, DEF, Moedas**
 - **8 slots de equipamento:** arma, escudo, elmo, armadura, botas, anel, colar, capa
+- **Árvore de talentos** — 4 escolhas por classe nos níveis 5, 10, 15 e 20
 
 ### ⚔ Combate tático
 - **7 ações por turno:** atacar, forte, rápido, defender, esquivar, focar, fugir
 - **Dano aleatório** com dado de 6 faces (d6)
-- **Inimigos inteligentes** (defendem quando com HP baixo, ficam agressivos quando você está fraco)
-- **Chefes únicos** com padrões especiais (Troll faz Golpe Terra a cada 3 turnos)
+- **IA reativa** — os inimigos veem o que você fez e respondem
+- **5 arquétipos de inimigo:** agressivo, defensivo, tático, bestial, mágico
+- **Chefes com padrões únicos** (Troll faz Golpe Terra a cada 3 turnos; Dragão exala Sopro de Fogo; Bruxa cura a si mesma)
+- **Inimigos fogem** com HP baixo — você ganha XP parcial
 - **Combo tático:** defender → focar → forte = dano crítico devastador
+
+### 🌟 Talentos (por classe)
+- **Guerreiro:** Fúria, Resistência, Golpe Duplo, Segunda Chance, Berserker, Guardião, Campeão, Imortal
+- **Mago:** Metamagia, Foco Arcano, Mestre Arcano, Regeneração Mágica, Piromante, Criomante, Arquimago, Sábio
+- **Ladino:** Furtividade, Assassino, Veneno Aprimorado, Velocidade, Mestre das Sombras, Evasão, Sombra Mortal, Fantasma
+- **Clérigo:** Fé, Julgamento, Bênção Duradoura, Aura Sagrada, Sacerdote, Curandeiro, Santo, Inquisidor
+- **Arqueiro:** Tiro Rápido, Mira Letal, Flecha Perfurante, Tiro Certeiro, Caçador, Atirador de Elite, Mestre Arqueiro, Olho de Águia
+
+### 🏆 Conquistas e Títulos
+- **45 conquistas** em 7 categorias (progressão, combate, chefes, exploração, itens, economia, eventos)
+- **Bônus permanentes** ao desbloquear (ATK, DEF, HP, MP)
+- **20 títulos** para equipar (ex: "Matador de Dragões", "Lenda", "Imortal")
+- Título aparece ao lado do nome no header
 
 ### 🔮 Magias
 - 9 magias divididas em **ataque** e **suporte**
@@ -68,9 +84,10 @@ Toda a interação acontece por **comandos de texto** digitados em um terminal c
 
 ### 🏟 Extras
 - **Arena de Treino** em Pedraverde (sem risco de morte)
-- **Tutorial completo** com 9 seções
+- **Tutorial completo** com 11 seções
 - **Ranking global** (Firebase)
 - **Chat global** em tempo real (Firebase)
+- **Save export/import** em JSON (backup e migração entre dispositivos)
 
 ### 🌐 Multi-idioma
 - **Português** e **English**
