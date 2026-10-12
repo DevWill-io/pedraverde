@@ -1,5 +1,3 @@
-Aqui está o `README.md` completo atualizado com todas as features novas (clima, descansar melhorado, filtros, toasts, refatoração).
-
 ```markdown
 # ⚔ Pedraverde — RPG de Texto
 
@@ -423,23 +421,3 @@ src/
 | PWA | Service Worker + Manifest |
 | Deploy | Vercel |
 ```
-
----
-
-## ✅ O que mudou no README
-
-### ➕ Adicionado
-| Seção | Novidade |
-|---|---|
-| **🎒 Itens** | Filtros e ordenação no inventário |
-| **🌦 Clima e horário** | NOVA SEÇÃO — 5 climas + 5 períodos + efeitos em combate |
-| **🛌 Descansar** | NOVA SEÇÃO — custo, cooldown, cura por período, risco |
-| **🔔 Toast Notifications** | NOVA SEÇÃO — 16 tipos de notificação |
-| **🕹 Comandos** | Adicionados `clima`, `hora`, `descansar` (contexto) |
-| **🎒 Filtros de Inventário** | NOVA SEÇÃO com exemplos |
-| **🧱 Estrutura** | Adicionado `constants/`, `utils/`, `TelaCriacao.jsx`, `TelaJogo.jsx`, `clima.js` |
-
-### 🔄 Atualizado
-- **Stacks**: nenhuma mudança
-- **Regras Firestore**: já com as validações reforçadas do chat
-- **Total de comandos**: ~55
