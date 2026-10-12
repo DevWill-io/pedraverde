@@ -11,7 +11,7 @@ import { EFEITOS, EFEITOS_INIMIGOS } from '../content/efeitos.js';
 import { INIMIGOS_ARENA, ARENA_INFO } from '../content/arena.js';
 import { RECEITAS, acharReceita } from '../content/receitas.js';
 import { ENCANTAMENTOS } from '../content/encantamentos.js';
-import { TALENTOS, acharTalento, talentosDoNivel, NIVEIS_TALENTO } from '../content/talentos.js';
+import { TALENTOS, acharTalento, NIVEIS_TALENTO } from '../content/talentos.js';
 
 const d6 = () => 1 + Math.floor(Math.random() * 6);
 
@@ -20,6 +20,28 @@ const d6 = () => 1 + Math.floor(Math.random() * 6);
 /* ================================================================== */
 function xpProximoNivel(nivel) {
   return Math.round(nivel * 20 + Math.pow(nivel, 1.5) * 3);
+}
+
+/* ================================================================== */
+/* Arquétipos de IA                                                    */
+/* ================================================================== */
+/* Peso de cada ação por personalidade                                 */
+const ARQUETIPOS = {
+  agressivo: { atacar: 0.68, forte: 0.22, focar: 0.05, defender: 0.03, esquivar: 0.02 },
+  defensivo: { atacar: 0.35, forte: 0.10, focar: 0.05, defender: 0.30, esquivar: 0.20 },
+  tatico:    { atacar: 0.45, forte: 0.20, focar: 0.15, defender: 0.10, esquivar: 0.10 },
+  bestial:   { atacar: 0.60, forte: 0.28, focar: 0.02, defender: 0.05, esquivar: 0.05 },
+  magico:    { atacar: 0.48, forte: 0.17, focar: 0.25, defender: 0.05, esquivar: 0.05 },
+};
+
+function sorteioPonderado(pesos) {
+  const total = Object.values(pesos).reduce((a, b) => a + b, 0);
+  let r = Math.random() * total;
+  for (const [acao, peso] of Object.entries(pesos)) {
+    r -= peso;
+    if (r <= 0) return acao;
+  }
+  return 'atacar';
 }
 
 /* ================================================================== */
@@ -42,7 +64,7 @@ export function novoJogo(opcoes = {}) {
   const manaMax = Math.max(0, base.manaMax + bonus.manaMax);
 
   return {
-    versao: 8,
+    versao: 9,
     nome: (nome || '').trim() || 'Herói',
     raca: racaId, classe: classeId,
     nivel: 1, xp: 0, xpProx: xpProximoNivel(1),
@@ -63,21 +85,20 @@ export function novoJogo(opcoes = {}) {
       locaisVisitados: ['pedraverde'], inimigosMortos: {},
       mortes: 0, danoTotal: 0, danoRecebido: 0, magiasLancadas: 0,
       eventosVividos: 0, turnosDeCombate: 0, vitoriasArena: 0, nocauteArena: 0,
-      itensCriados: 0, itensEncantados: 0, criadoEm: Date.now(),
+      itensCriados: 0, itensEncantados: 0, fugasInimigos: 0, criadoEm: Date.now(),
     },
     atualizadoEm: Date.now(),
   };
 }
 
 /* ================================================================== */
-/* Helpers — Talentos                                                  */
+/* Talentos                                                            */
 /* ================================================================== */
 export function temTalento(e, flag) {
   const ids = e.talentos || [];
   for (const id of ids) {
     const t = acharTalento(id);
     if (t?.flag === flag) return true;
-    // Caso especial: alguns talentos dão a flag "assassino" via flag própria
     if (t?.id === 'sombra_mortal' && flag === 'assassino') return true;
   }
   return false;
@@ -96,7 +117,7 @@ function bonusTalentos(e) {
 }
 
 /* ================================================================== */
-/* Helpers — Stats                                                     */
+/* Stats                                                               */
 /* ================================================================== */
 export function atkTotal(e) {
   let total = e.atk;
@@ -142,12 +163,13 @@ function normalizarEstado(e) {
   if (!e.raca) e.raca = 'humano';
   if (!e.classe) e.classe = 'guerreiro';
   if (!e.estatisticas) {
-    e.estatisticas = { locaisVisitados: [e.local || 'pedraverde'], inimigosMortos: {}, mortes: 0, danoTotal: 0, danoRecebido: 0, magiasLancadas: 0, eventosVividos: 0, turnosDeCombate: 0, vitoriasArena: 0, nocauteArena: 0, itensCriados: 0, itensEncantados: 0, criadoEm: Date.now() };
+    e.estatisticas = { locaisVisitados: [e.local || 'pedraverde'], inimigosMortos: {}, mortes: 0, danoTotal: 0, danoRecebido: 0, magiasLancadas: 0, eventosVividos: 0, turnosDeCombate: 0, vitoriasArena: 0, nocauteArena: 0, itensCriados: 0, itensEncantados: 0, fugasInimigos: 0, criadoEm: Date.now() };
   }
   if (!Array.isArray(e.estatisticas.locaisVisitados)) e.estatisticas.locaisVisitados = [];
   if (!e.estatisticas.inimigosMortos) e.estatisticas.inimigosMortos = {};
   if (typeof e.estatisticas.itensCriados !== 'number') e.estatisticas.itensCriados = 0;
   if (typeof e.estatisticas.itensEncantados !== 'number') e.estatisticas.itensEncantados = 0;
+  if (typeof e.estatisticas.fugasInimigos !== 'number') e.estatisticas.fugasInimigos = 0;
   return e;
 }
 
@@ -172,7 +194,6 @@ function checarNivel(e, p) {
     e.hpMax += 5; e.atk += 1; e.def += 1; e.manaMax += 3;
     e.hp = e.hpMax; e.mana = e.manaMax;
     p(`✦ LEVEL UP! Nível ${e.nivel}. (+5 HP, +1 ATK, +1 DEF, +3 Mana, cura total)`, 'level-up');
-
     if (NIVEIS_TALENTO.includes(e.nivel)) {
       e.pontosTalento += 1;
       p(`★ Você ganhou 1 ponto de talento! Use "talentos" para ver as opções.`, 'talento-ponto');
@@ -278,7 +299,6 @@ function lancarMagia(e, magiaId, p) {
   if (!m) { p('Magia desconhecida.', 'erro'); return false; }
   if (!e.magias?.includes(magiaId)) { p(`Você não conhece "${m.nome}".`, 'erro'); return false; }
 
-  // Metamagia: -20% custo MP
   let custo = m.mana;
   if (temTalento(e, 'metamagia')) custo = Math.ceil(custo * 0.8);
 
@@ -288,38 +308,25 @@ function lancarMagia(e, magiaId, p) {
 
   if (m.tipo === 'ataque') {
     let dano = m.dano ? m.dano + d6() : Math.round(atkTotal(e) * (m.multiplicador || 1));
-
-    // Foco Arcano: +3 dano mágico
     if (temTalento(e, 'foco_mago')) dano += 3;
-
-    // Piromante: +5 dano em magias de fogo
     if (magiaId === 'bola_fogo' && temTalento(e, 'piromante')) dano += 5;
-
     if (!m.ignoraDef) dano -= ini.def;
     dano = Math.max(1, dano);
-
     if (!m.semErro && Math.random() < 0.1) p('✖ A magia errou.', 'erro');
     else {
       ini.hp -= dano; e.estatisticas.danoTotal += dano;
       const ex = [];
       if (m.ignoraDef) ex.push('ignora DEF');
-
-      // Chance de atordoar/congelar (Criomante amplifica congelamento)
       let chanceCong = m.chanceCongelar || 0;
       if (chanceCong && temTalento(e, 'criomante')) chanceCong += 0.2;
-
       if (m.chanceAtordoar && Math.random() < m.chanceAtordoar) { aplicarEfeito(ini, 'atordoado'); ex.push('ATORDOADO'); }
       if (chanceCong && Math.random() < chanceCong) { aplicarEfeito(ini, 'congelado'); ex.push('CONGELADO'); }
-
-      // Julgamento: +50% dano contra mortos-vivos
       const mortosVivos = ['esqueleto', 'mumia_rei', 'bispo_sombrio'];
       if (mortosVivos.includes(ini.id) && temTalento(e, 'julgamento')) {
         const extra = Math.round(dano * 0.5);
-        ini.hp -= extra;
-        e.estatisticas.danoTotal += extra;
+        ini.hp -= extra; e.estatisticas.danoTotal += extra;
         ex.push(`JULGAMENTO +${extra}`);
       }
-
       const tag = ex.length ? ` (${ex.join(', ')})` : '';
       p(`✦ ${m.nome} causa ${dano}${tag}.`, 'dano-magico');
     }
@@ -327,28 +334,19 @@ function lancarMagia(e, magiaId, p) {
   } else if (m.tipo === 'suporte') {
     if (m.cura) {
       let cura = m.cura;
-      // Fé: +30% cura
       if (temTalento(e, 'fe')) cura = Math.round(cura * 1.3);
       const a = e.hp; e.hp = Math.min(e.hpMax, e.hp + cura);
       p(`✚ Recupera ${e.hp - a} HP.`, 'cura');
-      // Curandeiro: limpa efeitos
       if (temTalento(e, 'curandeiro')) {
         e.efeitos = (e.efeitos || []).filter((ef) => EFEITOS[ef.tipo]?.tipo !== 'dano');
         p('   Efeitos negativos removidos.', 'cura');
       }
     }
     if (m.buff) {
-      // Bênção Duradoura: +2 turnos
       let dur = m.buff.duracao;
       if (temTalento(e, 'bencao_duradoura')) dur += 2;
-      if (m.buff.atk) {
-        e.efeitos = (e.efeitos || []).filter((ef) => ef.tipo !== 'forca');
-        e.efeitos.push({ tipo: 'forca', valor: m.buff.atk, duracao: dur });
-      }
-      if (m.buff.def) {
-        e.efeitos = (e.efeitos || []).filter((ef) => ef.tipo !== 'def-buff');
-        e.efeitos.push({ tipo: 'def-buff', valor: m.buff.def, duracao: dur });
-      }
+      if (m.buff.atk) { e.efeitos = (e.efeitos || []).filter((ef) => ef.tipo !== 'forca'); e.efeitos.push({ tipo: 'forca', valor: m.buff.atk, duracao: dur }); }
+      if (m.buff.def) { e.efeitos = (e.efeitos || []).filter((ef) => ef.tipo !== 'def-buff'); e.efeitos.push({ tipo: 'def-buff', valor: m.buff.def, duracao: dur }); }
       p(`✦ Efeitos: ${resumoEfeitos(e)}`, 'buff');
     }
   }
@@ -367,6 +365,7 @@ function iniciarCombateArena(e, id, p) {
     inimigoDefendendo: false, inimigoEsquivando: false, inimigoFocando: false,
     enfurecido: false, efeitos: [], arena: true,
     segundaChanceUsada: false,
+    ultimaAcaoJogador: 'atacar',
   };
   p(`⚔ TREINO: um ${b.nome}!`, 'arena');
   if (b.desc) p(b.desc, 'sistema');
@@ -404,12 +403,14 @@ function iniciarCombate(e, id, p) {
     inimigoDefendendo: false, inimigoEsquivando: false, inimigoFocando: false,
     enfurecido: false, efeitos: [], arena: false,
     segundaChanceUsada: false,
+    ultimaAcaoJogador: 'atacar',
   };
   const tipo = b.chefe ? 'combate-chefe' : 'combate-inicio';
   p(`⚔ ${b.chefe ? 'CHEFE! ' : ''}Um ${b.nome} surge!`, tipo);
   if (b.desc) p(b.desc, 'sistema');
   mostrarStatusCombate(e, p);
 }
+
 function mostrarStatusCombate(e, p) {
   const ini = e.emCombate; if (!ini) return;
   p(`${ini.arena ? '⚔ TREINO — ' : ''}Turno ${ini.turno}`, 'combate-turno');
@@ -436,74 +437,215 @@ function mostrarStatusCombate(e, p) {
   if (efI.length) p('  Inimigo: ' + efI.join(' | '), 'combate');
   p('Ações: atacar · forte · rapido · defender · esquivar · focar · magia · usar · fugir', 'sistema');
 }
+
+/* ---------- Ataques do jogador ---------- */
 function ataqueJogador(e, ini, acao) {
   let dano = atkTotal(e) + d6() - ini.def;
   let errou = false, critico = false;
-
   if (acao === 'forte') {
-    if (Math.random() < 0.3) { errou = true; }
+    if (Math.random() < 0.3) errou = true;
     else dano = Math.round(dano * 1.5);
   } else if (acao === 'rapido') {
     dano = Math.max(1, dano - 2);
   }
-
-  // Flecha Perfurante: ignora 3 DEF
   if (temTalento(e, 'perfurante')) dano += 3;
-
-  // Fúria: +50% dano se HP < 30%
-  if (temTalento(e, 'furia') && e.hp / e.hpMax < 0.3) {
-    dano = Math.round(dano * 1.5);
-  }
-
-  // Mestre das Sombras: +6 ATK quando em HP cheio
-  if (temTalento(e, 'mestre_sombras') && e.hp >= e.hpMax) {
-    dano += 6;
-  }
-
-  // Tiro Certeiro (talento "sem_erro_forte") nunca erra "forte"
+  if (temTalento(e, 'furia') && e.hp / e.hpMax < 0.3) dano = Math.round(dano * 1.5);
+  if (temTalento(e, 'mestre_sombras') && e.hp >= e.hpMax) dano += 6;
   if (errou && acao === 'forte' && temTalento(e, 'sem_erro_forte')) {
     errou = false;
     dano = Math.round((atkTotal(e) + d6() - ini.def) * 1.5);
   }
-
-  if (!errou && e.emCombate.criticoCarregado) {
-    dano *= temTalento(e, 'assassino') ? 3 : 2;
-    critico = true;
-  }
+  if (!errou && e.emCombate.criticoCarregado) { dano *= temTalento(e, 'assassino') ? 3 : 2; critico = true; }
   if (!errou && e.emCombate.inimigoDefendendo) dano = Math.max(1, Math.round(dano * 0.4));
   if (!errou && e.emCombate.inimigoEsquivando && Math.random() < 0.5) errou = true;
-
   return { dano: Math.max(1, dano), errou, critico };
 }
-function ataqueInimigo(e, ini, acao) {
-  let dano = ini.atk + d6() - defTotal(e);
-  let errou = false, critico = false;
-  if (ini.enfurecido) dano += 2;
-  if (acao === 'golpe_terra') { dano = Math.round(dano * 2); critico = true; }
-  else if (acao === 'forte') { if (Math.random() < 0.3) errou = true; else dano = Math.round(dano * 1.5); }
 
-  if (!errou && e.emCombate.defesaAtiva) dano = Math.max(1, Math.round(dano * 0.4));
+/* ---------- IA do inimigo ---------- */
+function escolherAcaoInimigo(e, ini) {
+  const b = INIMIGOS[ini.id] || {};
+  const hpJ = e.hp / e.hpMax;
+  const hpI = ini.hp / ini.hpMax;
+  const ultima = ini.ultimaAcaoJogador || 'atacar';
 
-  // Evasão: 50% de esquivar quando HP < 50%
-  if (!errou && temTalento(e, 'evasao') && e.hp / e.hpMax < 0.5 && Math.random() < 0.5) {
-    errou = true;
+  /* === 1. Padrão fixo de chefe === */
+  if (b.padrao?.length) {
+    const idx = (ini.turno - 1) % b.padrao.length;
+    let acao = b.padrao[idx];
+
+    /* Override: se o jogador focou, chefe inteligente pode defender */
+    if (ultima === 'focar' && Math.random() < 0.5 && acao === 'atacar') acao = 'defender';
+
+    /* Override: se HP muito baixo e tem cura no padrão, usa */
+    if (hpI < 0.25 && b.padrao.includes('cura_sombria') && acao !== 'cura_sombria') {
+      if (Math.random() < 0.6) acao = 'cura_sombria';
+    }
+    return acao;
   }
 
-  if (!errou && e.emCombate.esquivaAtiva && Math.random() < 0.5) errou = true;
-  return { dano: Math.max(1, dano), errou, critico };
+  /* === 2. Reação inteligente ao jogador === */
+  // Jogador focou = vem crítico → melhor defender
+  if (ultima === 'focar' && Math.random() < 0.65) return 'defender';
+  // Jogador está defendendo → foca pra quebrar a defesa no próximo turno
+  if (ultima === 'defender' && Math.random() < 0.45) return 'focar';
+  // Jogador esquivou → ataca rápido (mais chances)
+  if (ultima === 'esquivar' && Math.random() < 0.40) return 'atacar';
+  // Jogador usou item/magia (não atacou) → aproveita pra atacar
+  if ((ultima === 'usar' || ultima === 'magia') && Math.random() < 0.55) return 'atacar';
+
+  /* === 3. Reação ao HP === */
+  // Inimigo muito ferido
+  if (hpI < 0.20) {
+    if (!ini.chefe && !ini.arena && Math.random() < 0.35) return 'fugir';
+    if (Math.random() < 0.5) return 'forte';
+  }
+  if (hpI < 0.35 && Math.random() < 0.4) return 'defender';
+
+  // Jogador muito ferido = finaliza com força
+  if (hpJ < 0.25 && Math.random() < 0.65) return 'forte';
+
+  /* === 4. Escolha por arquétipo === */
+  const arq = b.arquetipo || 'tatico';
+  const pesos = ARQUETIPOS[arq] || ARQUETIPOS.tatico;
+  return sorteioPonderado(pesos);
 }
-function escolherAcaoInimigo(e, ini) {
-  const hpJ = e.hp / e.hpMax, hpI = ini.hp / ini.hpMax;
-  if (ini.chefe && ini.id === 'troll' && ini.turno % 3 === 0) return 'golpe_terra';
-  if (hpI < 0.3 && Math.random() < 0.5) return Math.random() < 0.5 ? 'defender' : 'esquivar';
-  if (hpJ < 0.3 && Math.random() < 0.5) return 'forte';
-  if (Math.random() < 0.2 && !ini.inimigoFocando) return 'focar';
-  return 'atacar';
+
+/* ---------- Executa ação do inimigo ---------- */
+function resolverAcaoInimigo(e, ini, acao, p) {
+  /* Defender / esquivar / focar: sem dano neste turno */
+  if (acao === 'defender') {
+    ini.inimigoDefendendo = true;
+    p(`🛡 ${ini.nome} assume postura defensiva.`, 'combate');
+    return;
+  }
+  if (acao === 'esquivar') {
+    ini.inimigoEsquivando = true;
+    p(`💨 ${ini.nome} se prepara para esquivar.`, 'combate');
+    return;
+  }
+  if (acao === 'focar') {
+    ini.inimigoFocando = true;
+    p(`🎯 ${ini.nome} concentra-se — o próximo ataque será brutal.`, 'combate');
+    return;
+  }
+
+  /* Fugir */
+  if (acao === 'fugir') {
+    e.estatisticas.fugasInimigos += 1;
+    const xpParcial = Math.round((INIMIGOS[ini.id]?.xp || 0) * 0.3);
+    p(`💨 ${ini.nome} fugiu do combate!`, 'aviso');
+    if (xpParcial > 0) {
+      e.xp += xpParcial;
+      p(`   Você ganha ${xpParcial} XP pela escaramuça.`, 'xp');
+    }
+    e.emCombate = null;
+    e.efeitos = [];
+    checarNivel(e, p);
+    return;
+  }
+
+  /* Cura sombria */
+  if (acao === 'cura_sombria') {
+    const cura = Math.round(ini.hpMax * 0.15);
+    const antes = ini.hp;
+    ini.hp = Math.min(ini.hpMax, ini.hp + cura);
+    const real = ini.hp - antes;
+    p(`🌑 ${ini.nome} canaliza energia sombria e recupera ${real} HP. (${ini.hp}/${ini.hpMax})`, 'evento-ruim');
+    return;
+  }
+
+  /* Rugido: aplica fraqueza */
+  if (acao === 'rugido') {
+    p(`🔊 ${ini.nome} emite um RUGIDO ensurdecedor!`, 'aviso');
+    aplicarEfeito(e, 'fraqueza', p, true);
+    return;
+  }
+
+  /* Maldição: fraqueza + sangramento */
+  if (acao === 'maldicao') {
+    p(`💀 ${ini.nome} lança uma MALDIÇÃO sobre você!`, 'evento-ruim');
+    aplicarEfeito(e, 'fraqueza', p, true);
+    aplicarEfeito(e, 'sangramento', p, true);
+    return;
+  }
+
+  /* Ataques com dano */
+  let danoBase = ini.atk + d6() - defTotal(e);
+  let ignorarMetade = false;
+  let aplicarQueimadura = false;
+
+  if (acao === 'forte') {
+    if (Math.random() < 0.3) {
+      p(`✔ ${ini.nome} tentou um golpe forte e errou!`, 'esquiva');
+      ini.inimigoFocando = false;
+      return;
+    }
+    danoBase = Math.round(danoBase * 1.5);
+  } else if (acao === 'golpe_terra') {
+    danoBase = Math.round(danoBase * 2);
+    p(`⛰ ${ini.nome} usa GOLPE TERRA! O chão racha sob seus pés.`, 'aviso');
+  } else if (acao === 'sopro_fogo') {
+    danoBase = Math.round(danoBase * 1.5);
+    aplicarQueimadura = true;
+    p(`🔥 ${ini.nome} exala um SOPRO DE FOGO!`, 'aviso');
+  } else if (acao === 'magia_sombria') {
+    danoBase = Math.round(danoBase * 1.8);
+    ignorarMetade = true;
+    p(`🌑 ${ini.nome} conjura MAGIA SOMBRIA!`, 'aviso');
+  }
+
+  /* Se o inimigo focou no turno anterior, dobra o dano */
+  if (ini.inimigoFocando) {
+    danoBase *= 2;
+    ini.inimigoFocando = false;
+    p(`   (o foco acumulado potencializa o golpe!)`, 'combate');
+  }
+
+  if (ini.enfurecido) danoBase += 2;
+
+  /* Ignora metade da DEF (magia sombria) */
+  if (ignorarMetade) {
+    danoBase += Math.floor(defTotal(e) * 0.5);
+  }
+
+  /* Defesa ativa do jogador reduz 60% */
+  if (e.emCombate.defesaAtiva) danoBase = Math.max(1, Math.round(danoBase * 0.4));
+
+  /* Evasão (talento) */
+  if (temTalento(e, 'evasao') && e.hp / e.hpMax < 0.5 && Math.random() < 0.5) {
+    p(`💫 Você esquivou por pura agilidade!`, 'esquiva');
+    return;
+  }
+
+  /* Esquiva ativa */
+  if (e.emCombate.esquivaAtiva && Math.random() < 0.5) {
+    p(`💨 Você esquivou do ataque!`, 'esquiva');
+    return;
+  }
+
+  const dano = Math.max(1, danoBase);
+  e.hp -= dano;
+  e.estatisticas.danoRecebido += dano;
+  p(`💥 ${ini.nome} causa ${dano} de dano. (${Math.max(0, e.hp)}/${e.hpMax} HP)`, 'dano-recebido');
+
+  /* Aplica efeito elemental do inimigo (veneno, sangramento, etc.) */
+  const ef = EFEITOS_INIMIGOS[ini.id];
+  if (ef && Math.random() < ef.chance) {
+    const imune = temTalento(e, 'imune_veneno') && (ef.tipo === 'veneno' || ef.tipo === 'sangramento');
+    if (imune) p(`👻 Imune a ${ef.tipo}!`, 'buff');
+    else aplicarEfeito(e, ef.tipo, p, true);
+  }
+
+  /* Queimadura do sopro de fogo */
+  if (aplicarQueimadura && e.hp > 0) {
+    aplicarEfeito(e, 'queimadura', p, true);
+  }
 }
+
 function turnoInimigo(e, p) {
   const ini = e.emCombate; if (!ini) return;
 
-  // Regeneração (talentos): HP e MP por turno
+  /* Regeneração (talentos) */
   if (temTalento(e, 'regen_hp') && e.hp < e.hpMax) {
     const antes = e.hp;
     e.hp = Math.min(e.hpMax, e.hp + 2);
@@ -515,49 +657,86 @@ function turnoInimigo(e, p) {
     if (e.mana > antes) p(`✨ Regeneração Mágica: +${e.mana - antes} MP. (${e.mana}/${e.manaMax})`, 'mana');
   }
 
+  /* Tick de efeitos no inimigo */
   tickEfeitos(ini, p, ini.nome);
   if (ini.hp <= 0) { vencer(e, p); return; }
+
+  /* Atordoado / congelado: pula turno */
   const at = ini.efeitos?.find((x) => x.tipo === 'atordoado');
   const cg = ini.efeitos?.find((x) => x.tipo === 'congelado');
-  if (at) { p(`⚡ ${ini.nome} atordoado.`, 'sucesso'); ini.efeitos = ini.efeitos.filter((x) => x.tipo !== 'atordoado'); ini.turno += 1; mostrarStatusCombate(e, p); return; }
-  if (cg) { p(`❄ ${ini.nome} congelado.`, 'sucesso'); ini.efeitos = ini.efeitos.filter((x) => x.tipo !== 'congelado'); ini.turno += 1; mostrarStatusCombate(e, p); return; }
-  const acao = escolherAcaoInimigo(e, ini);
-  ini.inimigoDefendendo = false; ini.inimigoEsquivando = false;
-  if (acao === 'defender') { ini.inimigoDefendendo = true; p(`🛡 ${ini.nome} defende.`, 'combate'); }
-  else if (acao === 'esquivar') { ini.inimigoEsquivando = true; p(`💨 ${ini.nome} esquiva.`, 'combate'); }
-  else if (acao === 'focar') { ini.inimigoFocando = true; p(`🎯 ${ini.nome} foca.`, 'combate'); }
-  else {
-    const { dano, errou, critico } = ataqueInimigo(e, ini, acao);
-    if (errou) { p(`✔ ${ini.nome} errou!`, 'esquiva'); ini.inimigoFocando = false; }
-    else {
-      let d = dano; if (ini.inimigoFocando) { d *= 2; ini.inimigoFocando = false; }
-      e.hp -= d; e.estatisticas.danoRecebido += d;
-      const ex = []; if (critico) ex.push('PESADO');
-      p(`💥 ${ini.nome}${ex.length ? ' (' + ex.join(', ') + ')' : ''} causa ${d}. (${Math.max(0, e.hp)}/${e.hpMax})`, 'dano-recebido');
-      const ef = EFEITOS_INIMIGOS[ini.id];
-      if (ef && Math.random() < ef.chance) {
-        // Fantasma: imune a veneno
-        const imune = temTalento(e, 'imune_veneno') && (ef.tipo === 'veneno' || ef.tipo === 'sangramento');
-        if (imune) p(`👻 Imune a ${ef.tipo}!`, 'buff');
-        else aplicarEfeito(e, ef.tipo, p, true);
-      }
-    }
+  if (at) {
+    p(`⚡ ${ini.nome} está atordoado e perde o turno!`, 'sucesso');
+    ini.efeitos = ini.efeitos.filter((x) => x.tipo !== 'atordoado');
+    ini.turno += 1;
+    mostrarStatusCombate(e, p);
+    return;
   }
-  if (ini.chefe && !ini.enfurecido && ini.hp < ini.hpMax * 0.5) { ini.enfurecido = true; p(`🔥 ${ini.nome} ENFURECIDO!`, 'aviso'); }
+  if (cg) {
+    p(`❄ ${ini.nome} está congelado e não se move!`, 'sucesso');
+    ini.efeitos = ini.efeitos.filter((x) => x.tipo !== 'congelado');
+    ini.turno += 1;
+    mostrarStatusCombate(e, p);
+    return;
+  }
+
+  /* Decide ação */
+  const acao = escolherAcaoInimigo(e, ini);
+
+  /* Reset dos escudos do turno anterior (já foram usados pelo jogador) */
+  ini.inimigoDefendendo = false;
+  ini.inimigoEsquivando = false;
+
+  /* Executa */
+  resolverAcaoInimigo(e, ini, acao, p);
+
+  /* Se o combate acabou (fuga), para */
+  if (!e.emCombate) return;
+
+  /* Chefe enfurece abaixo de 50% HP */
+  if (ini.chefe && !ini.enfurecido && ini.hp < ini.hpMax * 0.5) {
+    ini.enfurecido = true;
+    p(`🔥 ${ini.nome} está ENFURECIDO! (+2 ATK em todos os golpes)`, 'aviso');
+  }
+
+  /* Checa morte do jogador */
   if (e.hp <= 0) { morrer(e, p); return; }
-  e.emCombate.defesaAtiva = false; e.emCombate.esquivaAtiva = false;
-  ini.turno += 1; e.estatisticas.turnosDeCombate += 1;
+
+  /* Limpa escudos do jogador */
+  e.emCombate.defesaAtiva = false;
+  e.emCombate.esquivaAtiva = false;
+  ini.turno += 1;
+  e.estatisticas.turnosDeCombate += 1;
   mostrarStatusCombate(e, p);
 }
+
 function processarCombate(e, cmd, arg, p) {
   const ini = e.emCombate; if (!ini) return;
   tickEfeitos(e, p, 'Você');
   if (e.hp <= 0) { morrer(e, p); return; }
-  if (cmd === 'defender') { e.emCombate.defesaAtiva = true; p('🛡 Defendendo.', 'defesa'); turnoInimigo(e, p); return; }
-  if (cmd === 'esquivar') { e.emCombate.esquivaAtiva = true; p('💨 Esquivando.', 'esquiva'); turnoInimigo(e, p); return; }
-  if (cmd === 'focar') { e.emCombate.criticoCarregado = true; p('🎯 Crítico pronto.', 'critico-pronto'); turnoInimigo(e, p); return; }
+
+  /* Guarda a ação do jogador para a IA reagir */
+  ini.ultimaAcaoJogador = cmd;
+
+  if (cmd === 'defender') {
+    e.emCombate.defesaAtiva = true;
+    p('🛡 Você assume postura defensiva. (-60% dano recebido neste turno)', 'defesa');
+    turnoInimigo(e, p);
+    return;
+  }
+  if (cmd === 'esquivar') {
+    e.emCombate.esquivaAtiva = true;
+    p('💨 Você se prepara para esquivar. (50% de evitar o ataque)', 'esquiva');
+    turnoInimigo(e, p);
+    return;
+  }
+  if (cmd === 'focar') {
+    e.emCombate.criticoCarregado = true;
+    p('🎯 Você se concentra. Próximo ataque será CRÍTICO (dano dobrado).', 'critico-pronto');
+    turnoInimigo(e, p);
+    return;
+  }
   if (cmd === 'fugir') {
-    if (ini.chefe && !ini.arena) { p('✖ Não dá pra fugir.', 'erro'); turnoInimigo(e, p); return; }
+    if (ini.chefe && !ini.arena) { p('✖ Não dá pra fugir de um chefe!', 'erro'); turnoInimigo(e, p); return; }
     if (ini.arena) { p('✔ Sai do ringue.', 'fuga'); e.emCombate = null; e.efeitos = []; return; }
     if (Math.random() < 0.5) { p('✔ Fugiu!', 'fuga'); e.emCombate = null; e.efeitos = []; return; }
     p('✖ Tropeçou!', 'erro'); turnoInimigo(e, p); return;
@@ -569,7 +748,7 @@ function processarCombate(e, cmd, arg, p) {
     return;
   }
 
-  // Ataque básico (com chance de golpe duplo)
+  /* Ataque básico com chance de golpe duplo */
   const golpeDuplo = temTalento(e, 'golpe_duplo') && Math.random() < (temTalento(e, 'velocidade') ? 0.5 : 0.25);
   const vezes = golpeDuplo ? 2 : 1;
   let totalDano = 0;
@@ -577,11 +756,13 @@ function processarCombate(e, cmd, arg, p) {
 
   for (let v = 0; v < vezes && ini.hp > 0; v++) {
     const { dano, errou, critico } = ataqueJogador(e, ini, cmd);
-    if (errou) { p(`✖ Você errou${v > 0 ? ' o segundo golpe' : ''}!`, 'erro'); }
-    else {
+    if (errou) {
+      p(`✖ Você errou${v > 0 ? ' o segundo golpe' : ''}!`, 'erro');
+    } else {
       ini.hp -= dano; e.estatisticas.danoTotal += dano;
       totalDano += dano;
       if (critico) algumCritico = true;
+
       const encArma = e.encantamentos?.arma;
       if (encArma && ENCANTAMENTOS[encArma]?.efeito && ini.hp > 0) {
         const en = ENCANTAMENTOS[encArma];
@@ -590,7 +771,6 @@ function processarCombate(e, cmd, arg, p) {
           p(`${en.emoji} ${en.nome} ativa! ${ini.nome} recebe ${en.efeito}!`, 'dano-magico');
         }
       }
-      // Veneno Aprimorado (ladino): 25% de veneno automático
       if (temTalento(e, 'veneno_auto') && Math.random() < 0.25 && ini.hp > 0) {
         aplicarEfeito(ini, 'veneno');
         p(`☠ Veneno Aprimorado aplicado!`, 'dano-magico');
@@ -608,6 +788,7 @@ function processarCombate(e, cmd, arg, p) {
   if (ini.hp <= 0) { vencer(e, p); return; }
   turnoInimigo(e, p);
 }
+
 function vencer(e, p) {
   const ini = e.emCombate;
   const b = INIMIGOS[ini.id];
@@ -634,11 +815,11 @@ function vencer(e, p) {
   progredir(e, 'matar', ini.id, p);
   checarNivel(e, p);
 }
+
 function morrer(e, p) {
   const ini = e.emCombate;
   const arena = ini?.arena;
 
-  // Segunda Chance: revive com 30% HP (uma vez por combate)
   if (!arena && ini && !ini.segundaChanceUsada && temTalento(e, 'segunda_chance')) {
     ini.segundaChanceUsada = true;
     e.hp = Math.round(e.hpMax * 0.3);
@@ -728,17 +909,14 @@ function tentarEncantar(e, slotArg, encArg, p) {
 }
 
 /* ================================================================== */
-/* TALENTOS — comando                                                  */
+/* TALENTOS                                                            */
 /* ================================================================== */
 function listarTalentos(e, p) {
   const classeId = e.classe;
   const lista = TALENTOS[classeId] || {};
-
   p('◆ Talentos', 'titulo');
   p(`Classe: ${CLASSES[classeId]?.nome || classeId} · Pontos disponíveis: ${e.pontosTalento}`, 'talento-info');
   p('', 'espaco');
-
-  // Já escolhidos
   if (e.talentos.length) {
     p('— Já aprendidos —', 'titulo');
     for (const id of e.talentos) {
@@ -747,17 +925,11 @@ function listarTalentos(e, p) {
     }
     p('', 'espaco');
   }
-
-  // Níveis disponíveis
-  const proximosNiveis = NIVEIS_TALENTO.filter((n) => !Object.keys(lista).includes(String(e.nivel - 1)) || true);
-
-  // Mostra as opções por nível
   for (const nivelStr of Object.keys(lista)) {
     const nivel = parseInt(nivelStr, 10);
     const opcoes = lista[nivelStr];
     const nivelAtingido = e.nivel >= nivel;
     const algumaEscolhida = opcoes.some((t) => e.talentos.includes(t.id));
-
     p(`— Nível ${nivel} ${nivelAtingido ? (algumaEscolhida ? '✓' : '⚠') : '🔒'} —`, 'titulo');
     if (!nivelAtingido) {
       p('  Bloqueado (você é nível ' + e.nivel + ')', 'talento-bloq');
@@ -777,18 +949,13 @@ function listarTalentos(e, p) {
           if (b.length) p(`       ${b.join(' · ')}`, 'item-bonus');
         }
       });
-      if (e.pontosTalento > 0) {
-        p(`  → Escolha: "escolher ${nivel} <1|2>"`, 'talento-comando');
-      } else {
-        p(`  → Ganhe um ponto de talento ao subir de nível`, 'talento-bloq');
-      }
+      if (e.pontosTalento > 0) p(`  → Escolha: "escolher ${nivel} <1|2>"`, 'talento-comando');
+      else p(`  → Ganhe um ponto de talento ao subir de nível`, 'talento-bloq');
     }
     p('', 'separador');
   }
 }
-
 function escolherTalento(e, args, p) {
-  // Formato esperado: "escolher <nivel> <1|2>"  OU  "escolher <id>"
   const partes = args.split(/\s+/).filter(Boolean);
   if (!partes.length) {
     p('Uso: "escolher <nível> <1|2>". Ex: escolher 5 1', 'erro');
@@ -796,33 +963,21 @@ function escolherTalento(e, args, p) {
     p('Use "talentos" para ver as opções.', 'sistema');
     return;
   }
-
-  if (e.pontosTalento <= 0) {
-    p('Você não tem pontos de talento disponíveis.', 'erro');
-    return;
-  }
-
+  if (e.pontosTalento <= 0) { p('Você não tem pontos de talento disponíveis.', 'erro'); return; }
   const classeId = e.classe;
   const lista = TALENTOS[classeId] || {};
-
-  // Modo 1: "escolher <nivel> <1|2>"
   if (partes.length === 2 && /^\d+$/.test(partes[0]) && /^[12]$/.test(partes[1])) {
     const nivel = parseInt(partes[0], 10);
     const idx = parseInt(partes[1], 10) - 1;
     const opcoes = lista[String(nivel)];
     if (!opcoes) { p(`Não há talento disponível no nível ${nivel} para ${CLASSES[classeId]?.nome}.`, 'erro'); return; }
     if (e.nivel < nivel) { p(`🔒 Você ainda não atingiu o nível ${nivel}.`, 'erro'); return; }
-    if (opcoes.some((t) => e.talentos.includes(t.id))) {
-      p(`Você já escolheu um talento do nível ${nivel}.`, 'erro');
-      return;
-    }
+    if (opcoes.some((t) => e.talentos.includes(t.id))) { p(`Você já escolheu um talento do nível ${nivel}.`, 'erro'); return; }
     const talento = opcoes[idx];
     if (!talento) { p('Opção inválida.', 'erro'); return; }
     aplicarTalento(e, talento, p);
     return;
   }
-
-  // Modo 2: "escolher <id>"
   const idAlvo = normalizar(partes.join('_'));
   let talentoEncontrado = null;
   let nivelDoTalento = null;
@@ -836,52 +991,32 @@ function escolherTalento(e, args, p) {
     }
     if (talentoEncontrado) break;
   }
-
   if (!talentoEncontrado) {
     p(`Talento "${args}" não encontrado para sua classe.`, 'erro');
     p('Use "talentos" para ver as opções.', 'sistema');
     return;
   }
-
   if (e.nivel < nivelDoTalento) { p(`🔒 Você ainda não atingiu o nível ${nivelDoTalento}.`, 'erro'); return; }
   const opcoesNivel = lista[String(nivelDoTalento)] || [];
-  if (opcoesNivel.some((t) => e.talentos.includes(t.id))) {
-    p(`Você já escolheu um talento do nível ${nivelDoTalento}.`, 'erro');
-    return;
-  }
+  if (opcoesNivel.some((t) => e.talentos.includes(t.id))) { p(`Você já escolheu um talento do nível ${nivelDoTalento}.`, 'erro'); return; }
   aplicarTalento(e, talentoEncontrado, p);
 }
-
 function aplicarTalento(e, talento, p) {
-  if (e.talentos.includes(talento.id)) {
-    p('Você já tem esse talento.', 'erro');
-    return;
-  }
+  if (e.talentos.includes(talento.id)) { p('Você já tem esse talento.', 'erro'); return; }
   e.talentos.push(talento.id);
   e.pontosTalento -= 1;
-
   p(`★ Talento aprendido: ${talento.emoji} ${talento.nome}`, 'talento-aprendido');
   p(`   ${talento.desc}`, 'item-desc');
-
-  // Aplica bônus permanentes diretos em hpMax/manaMax (atk/def são somados dinamicamente)
   if (talento.bonus) {
-    if (talento.bonus.hpMax) {
-      e.hpMax += talento.bonus.hpMax;
-      e.hp += talento.bonus.hpMax;
-      p(`   +${talento.bonus.hpMax} HP máximo.`, 'item-bonus');
-    }
-    if (talento.bonus.manaMax) {
-      e.manaMax += talento.bonus.manaMax;
-      e.mana += talento.bonus.manaMax;
-      p(`   +${talento.bonus.manaMax} MP máximo.`, 'item-bonus');
-    }
+    if (talento.bonus.hpMax) { e.hpMax += talento.bonus.hpMax; e.hp += talento.bonus.hpMax; p(`   +${talento.bonus.hpMax} HP máximo.`, 'item-bonus'); }
+    if (talento.bonus.manaMax) { e.manaMax += talento.bonus.manaMax; e.mana += talento.bonus.manaMax; p(`   +${talento.bonus.manaMax} MP máximo.`, 'item-bonus'); }
     if (talento.bonus.atk) p(`   ${talento.bonus.atk > 0 ? '+' : ''}${talento.bonus.atk} ATK.`, 'item-bonus');
     if (talento.bonus.def) p(`   ${talento.bonus.def > 0 ? '+' : ''}${talento.bonus.def} DEF.`, 'item-bonus');
   }
 }
 
 /* ================================================================== */
-/* MAPA                                                                */
+/* Mapa                                                                */
 /* ================================================================== */
 function comandoMapa(e, p) {
   const localAtual = MUNDO[e.local];
@@ -979,40 +1114,27 @@ function aoEntrar(e, p) {
 /* EXAMINAR                                                            */
 /* ================================================================== */
 function examinarItem(e, arg, p) {
-  if (!arg) {
-    p('Examinar o quê? Ex: "examinar espada longa".', 'erro');
-    p('Use "inventario" para ver seus itens.', 'sistema');
-    return;
-  }
+  if (!arg) { p('Examinar o quê? Ex: "examinar espada longa".', 'erro'); p('Use "inventario" para ver seus itens.', 'sistema'); return; }
   const item = acharItem(arg);
   if (!item) { p(`Item "${arg}" não encontrado.`, 'erro'); return; }
-
   p(`◆ ${item.nome}${raridadeTag(item)}`, tipoRaridade(item));
   p('', 'separador');
   p(`Tipo: ${item.tipo}`, 'item-info');
   p(`Raridade: ${item.raridade || 'comum'}`, tipoRaridade(item));
   p(`Preço: ${item.preco} ◈ · Venda: ${precoVenda(item)} ◈`, 'item-preco');
-
   const bonus = [];
   if (item.atk) bonus.push(`+${item.atk} ATK`);
   if (item.def) bonus.push(`+${item.def} DEF`);
   if (bonus.length) p(`Bônus: ${bonus.join(' · ')}`, 'item-bonus');
-
   if (item.cura) p(`✚ Restaura ${item.cura} HP`, 'cura');
   if (item.mana) p(`✦ Restaura ${item.mana} MP`, 'mana');
-  if (item.magia) {
-    const mg = MAGIAS[item.magia];
-    p(`${mg?.emoji || '✦'} Lança ${mg?.nome || item.magia}`, 'magia');
-  }
+  if (item.magia) { const mg = MAGIAS[item.magia]; p(`${mg?.emoji || '✦'} Lança ${mg?.nome || item.magia}`, 'magia'); }
   if (item.buff) p(`✦ Aplica efeito: ${item.buff}`, 'buff');
-
   p('', 'separador');
   p(item.desc, 'item-desc');
-
   const tem = qtdItem(e, item.id);
   if (tem > 0) p(`Você tem ${tem}x.`, 'sucesso');
   else p(`Você não possui este item.`, 'sistema');
-
   const eq = SLOTS_EQUIP.find((s) => e.equipado[s] === item.id);
   if (eq) {
     const enc = e.encantamentos?.[eq];
@@ -1065,16 +1187,13 @@ export function processar(estadoAnterior, entradaBruta) {
       p('Comandos:', 'titulo');
       AJUDA.forEach((l) => p('  ' + l, 'sistema'));
       break;
-
     case 'mapa': case 'map': case 'm':
       comandoMapa(e, p);
       break;
-
     case 'olhar': case 'l':
       if (e.emCombate) { const ini = e.emCombate; p(`${ini.nome} — HP ${Math.max(0, ini.hp)}/${ini.hpMax}`, 'combate'); break; }
       aoEntrar(e, p);
       break;
-
     case 'ir': case 'andar': {
       const dir = normalizar(arg);
       if (!dir) { p('Ir para onde? Use "mapa".', 'erro'); break; }
@@ -1087,7 +1206,6 @@ export function processar(estadoAnterior, entradaBruta) {
       aoEntrar(e, p);
       break;
     }
-
     case 'pegar': {
       const chao = (local.itensNoChao || []).filter((id) => !e.flags[`chao_${e.local}_${id}`]);
       if (!chao.length) { p('Nada aqui.', 'erro'); break; }
@@ -1096,7 +1214,6 @@ export function processar(estadoAnterior, entradaBruta) {
       p(`Pegou: ${ITENS[id].nome}.`, 'pickup');
       break;
     }
-
     case 'inventario': case 'inv': case 'i': {
       if (!e.inventario.length) { p('Mochila vazia.', 'sistema'); break; }
       p(`◆ Inventário (${e.inventario.length} tipo${e.inventario.length > 1 ? 's' : ''})`, 'titulo');
@@ -1119,12 +1236,9 @@ export function processar(estadoAnterior, entradaBruta) {
       p('Use "examinar <item>" para detalhes ou "vender <número>".', 'sistema');
       break;
     }
-
-    case 'examinar': case 'inspecionar': case 'ver': case 'verificar': {
+    case 'examinar': case 'inspecionar': case 'ver': case 'verificar':
       examinarItem(e, arg, p);
       break;
-    }
-
     case 'equipar': case 'equip': {
       const item = acharItem(arg);
       if (!item) { p('Não achou.', 'erro'); break; }
@@ -1139,7 +1253,6 @@ export function processar(estadoAnterior, entradaBruta) {
       p(`Equipou ${item.nome} [${item.tipo}]. ${bonus.join(', ')}${extra}`, 'equipar');
       break;
     }
-
     case 'desequipar': case 'remover': {
       const slot = normalizar(arg);
       if (!SLOTS_EQUIP.includes(slot)) { p('Slot inválido.', 'erro'); break; }
@@ -1149,7 +1262,6 @@ export function processar(estadoAnterior, entradaBruta) {
       p(`Removeu ${n}.`, 'sistema');
       break;
     }
-
     case 'usar': {
       const item = acharItem(arg);
       if (!item) { p('Não achou.', 'erro'); break; }
@@ -1164,10 +1276,9 @@ export function processar(estadoAnterior, entradaBruta) {
       }
       if (item.mana) { const a = e.mana; e.mana = Math.min(e.manaMax, e.mana + item.mana); p(`Recupera ${e.mana - a} MP.`, 'mana'); }
       if (item.id === 'antidoto') { e.efeitos = (e.efeitos || []).filter((ef) => EFEITOS[ef.tipo]?.tipo !== 'dano'); p('Antídoto limpou efeitos.', 'cura'); }
-      if (e.emCombate) turnoInimigo(e, p);
+      if (e.emCombate) { e.emCombate.ultimaAcaoJogador = 'usar'; turnoInimigo(e, p); }
       break;
     }
-
     case 'descansar': case 'dormir': {
       if (e.emCombate) { p('Em combate!', 'erro'); break; }
       if (local.inimigos?.length || local.chefe) { p('Perigoso.', 'erro'); break; }
@@ -1176,7 +1287,6 @@ export function processar(estadoAnterior, entradaBruta) {
       p(`Descansou. HP ${h}→${e.hp} | MP ${m}→${e.mana}`, 'cura');
       break;
     }
-
     case 'magias': case 'grimorio': {
       if (!e.magias?.length) { p('Sem magias.', 'erro'); break; }
       p('◆ Grimório', 'titulo');
@@ -1192,33 +1302,22 @@ export function processar(estadoAnterior, entradaBruta) {
       }
       break;
     }
-
     case 'efeitos': case 'buffs': {
       if (!e.efeitos?.length) { p('Sem efeitos.', 'sistema'); break; }
       p('◆ Efeitos ativos', 'titulo');
       p('', 'espaco');
       for (const ef of e.efeitos) {
         const d = EFEITOS[ef.tipo];
-        if (d) {
-          p(`${d.emoji} ${d.nome} (${ef.duracao} turnos)`, 'buff');
-          p(`     ${d.desc}`, 'item-desc');
-          p('', 'separador');
-        }
+        if (d) { p(`${d.emoji} ${d.nome} (${ef.duracao} turnos)`, 'buff'); p(`     ${d.desc}`, 'item-desc'); p('', 'separador'); }
       }
       break;
     }
-
-    /* ========================= TALENTOS ========================= */
-    case 'talentos': case 'talent': {
+    case 'talentos': case 'talent':
       listarTalentos(e, p);
       break;
-    }
-
-    case 'escolher': case 'aprender': {
+    case 'escolher': case 'aprender':
       escolherTalento(e, arg, p);
       break;
-    }
-
     case 'bestiario': {
       const m = e.estatisticas.inimigosMortos || {};
       const ids = Object.keys(m);
@@ -1234,7 +1333,6 @@ export function processar(estadoAnterior, entradaBruta) {
       }
       break;
     }
-
     case 'diario': case 'jornada': {
       const r = RACAS[e.raca] || RACAS.humano;
       const c = CLASSES[e.classe] || CLASSES.guerreiro;
@@ -1248,9 +1346,9 @@ export function processar(estadoAnterior, entradaBruta) {
       p(`Dano causado: ${s.danoTotal} · recebido: ${s.danoRecebido}`, 'item-info');
       p(`Magias: ${s.magiasLancadas} · Criados: ${s.itensCriados} · Encantados: ${s.itensEncantados}`, 'item-info');
       p(`Talentos: ${e.talentos.length} · Pontos: ${e.pontosTalento}`, 'item-info');
+      p(`Inimigos fugiram: ${s.fugasInimigos}`, 'item-info');
       break;
     }
-
     case 'treinar': case 'lutar': {
       if (e.emCombate) { p('Já em combate.', 'erro'); break; }
       if (e.local !== 'arena') { p('Só na Arena.', 'erro'); break; }
@@ -1261,19 +1359,16 @@ export function processar(estadoAnterior, entradaBruta) {
       iniciarCombateArena(e, id, p);
       break;
     }
-
     case 'receitas': case 'receita': {
       const filtro = normalizar(arg);
       listarReceitas(e, p, filtro && ['ferraria', 'alquimia', 'cozinha'].includes(filtro) ? filtro : null);
       break;
     }
-
     case 'craftar': case 'forjar': case 'criar': {
       if (!arg) { p('Craftar o quê? Use "receitas" para ver a lista.', 'erro'); break; }
       tentarCraftar(e, arg, p);
       break;
     }
-
     case 'encantar': {
       if (!arg) {
         p('Uso: "encantar <slot> <tipo>"', 'erro');
@@ -1286,7 +1381,6 @@ export function processar(estadoAnterior, entradaBruta) {
       tentarEncantar(e, partes2[0], partes2[1], p);
       break;
     }
-
     case 'desencantar': {
       const slot = normalizar(arg);
       if (!SLOTS_EQUIP.includes(slot)) { p(`Slot inválido.`, 'erro'); break; }
@@ -1296,7 +1390,6 @@ export function processar(estadoAnterior, entradaBruta) {
       p(`Removeu ${enc.emoji} ${enc.nome} de ${slot}.`, 'sistema');
       break;
     }
-
     case 'encantamentos': case 'lista-encantamentos': {
       p('◆ Encantamentos disponíveis', 'titulo');
       p('', 'espaco');
@@ -1313,7 +1406,6 @@ export function processar(estadoAnterior, entradaBruta) {
       p('Use "encantar <slot> <tipo>" para aplicar.', 'sistema');
       break;
     }
-
     case 'status': {
       const r = RACAS[e.raca] || RACAS.humano;
       const c = CLASSES[e.classe] || CLASSES.guerreiro;
@@ -1325,9 +1417,7 @@ export function processar(estadoAnterior, entradaBruta) {
       if (e.manaMax > 0) p(`MP ${e.mana}/${e.manaMax}`, 'mana');
       p(`ATK ${atkTotal(e)} · DEF ${defTotal(e)}`, 'stats');
       p(`Moedas: ${e.moedas} · Local: ${MUNDO[e.local].nome}`, 'item-info');
-      if (e.pontosTalento > 0) {
-        p(`★ Você tem ${e.pontosTalento} ponto(s) de talento. Use "talentos".`, 'talento-ponto');
-      }
+      if (e.pontosTalento > 0) p(`★ Você tem ${e.pontosTalento} ponto(s) de talento. Use "talentos".`, 'talento-ponto');
       p('', 'espaco');
       p('Equipamento:', 'titulo');
       for (const slot of SLOTS_EQUIP) {
@@ -1336,9 +1426,7 @@ export function processar(estadoAnterior, entradaBruta) {
           const it = ITENS[id];
           const enc = e.encantamentos?.[slot] ? ` ${ENCANTAMENTOS[e.encantamentos[slot]].emoji}` : '';
           p(`  ${slot.padEnd(9)} ${it.nome}${enc}`, tipoRaridade(it));
-        } else {
-          p(`  ${slot.padEnd(9)} —`, 'sistema');
-        }
+        } else p(`  ${slot.padEnd(9)} —`, 'sistema');
       }
       if (e.talentos.length) {
         p('', 'espaco');
@@ -1350,7 +1438,6 @@ export function processar(estadoAnterior, entradaBruta) {
       }
       break;
     }
-
     case 'falar': {
       if (!local.npc) { p('Ninguém.', 'erro'); break; }
       p(`☻ ${local.npc.nome}`, 'npc');
@@ -1358,7 +1445,6 @@ export function processar(estadoAnterior, entradaBruta) {
       local.npc.falas.forEach((f) => p(f, 'fala'));
       break;
     }
-
     case 'loja': case 'shop': {
       if (!local.loja) { p('Sem loja aqui.', 'erro'); break; }
       p(`◆ ${local.loja.nome}`, 'loja-titulo');
@@ -1379,81 +1465,51 @@ export function processar(estadoAnterior, entradaBruta) {
       p('Use "comprar <número>" ou "comprar <nome>".', 'sistema');
       break;
     }
-
     case 'comprar': case 'buy': {
       if (!local.loja) { p('Sem loja aqui.', 'erro'); break; }
-      if (!arg) {
-        p('Comprar o quê? Use "loja" para ver a lista.', 'erro');
-        break;
-      }
+      if (!arg) { p('Comprar o quê? Use "loja" para ver a lista.', 'erro'); break; }
       let item = null;
       const argClean = arg.trim();
       if (/^\d+$/.test(argClean)) {
         const idx = parseInt(argClean, 10) - 1;
-        if (idx >= 0 && idx < local.loja.itens.length) {
-          item = ITENS[local.loja.itens[idx]];
-        }
-      } else {
-        item = acharItem(arg);
-      }
-      if (!item || !local.loja.itens.includes(item.id)) {
-        p('O lojista não vende esse item.', 'erro');
-        p('Use "loja" para ver a lista numerada.', 'sistema');
-        break;
-      }
-      if (e.moedas < item.preco) {
-        p(`Moedas insuficientes. Você tem ${e.moedas}, precisa de ${item.preco}.`, 'erro');
-        break;
-      }
+        if (idx >= 0 && idx < local.loja.itens.length) item = ITENS[local.loja.itens[idx]];
+      } else item = acharItem(arg);
+      if (!item || !local.loja.itens.includes(item.id)) { p('O lojista não vende esse item.', 'erro'); p('Use "loja" para ver a lista numerada.', 'sistema'); break; }
+      if (e.moedas < item.preco) { p(`Moedas insuficientes. Você tem ${e.moedas}, precisa de ${item.preco}.`, 'erro'); break; }
       e.moedas -= item.preco;
       addItem(e, item.id, 1);
       p(`Comprou ${item.nome}${raridadeTag(item)} por ${item.preco}◈. (restam ${e.moedas})`, 'compra');
       progredir(e, 'comprar', 'qualquer', p);
       break;
     }
-
     case 'vender': case 'sell': {
       if (!local.loja) { p('Sem loja aqui.', 'erro'); break; }
-      if (!arg) {
-        p('Vender o quê? Use "inventario" para ver a lista numerada.', 'erro');
-        break;
-      }
+      if (!arg) { p('Vender o quê? Use "inventario" para ver a lista numerada.', 'erro'); break; }
       let itemId = null;
       const argClean = arg.trim();
       if (/^\d+$/.test(argClean)) {
         const idx = parseInt(argClean, 10) - 1;
-        if (idx >= 0 && idx < e.inventario.length) {
-          itemId = e.inventario[idx].id;
-        }
+        if (idx >= 0 && idx < e.inventario.length) itemId = e.inventario[idx].id;
       } else {
         const found = acharItem(arg);
         if (found && qtdItem(e, found.id)) itemId = found.id;
       }
-      if (!itemId) {
-        p('Você não tem esse item.', 'erro');
-        p('Use "inventario" para ver a lista numerada.', 'sistema');
-        break;
-      }
+      if (!itemId) { p('Você não tem esse item.', 'erro'); p('Use "inventario" para ver a lista numerada.', 'sistema'); break; }
       const item = ITENS[itemId];
       const valor = precoVenda(item);
       remItem(e, itemId, 1);
       for (const s of SLOTS_EQUIP) {
-        if (e.equipado[s] === itemId && !qtdItem(e, itemId)) {
-          e.equipado[s] = null;
-          e.encantamentos[s] = null;
-        }
+        if (e.equipado[s] === itemId && !qtdItem(e, itemId)) { e.equipado[s] = null; e.encantamentos[s] = null; }
       }
       e.moedas += valor;
       p(`Vendeu ${item.nome} por ${valor}◈. (total ${e.moedas})`, 'venda');
       break;
     }
-
     case 'quests': case 'quest': {
       p('◆ QUESTS ATIVAS', 'titulo');
       p('', 'espaco');
-      if (!e.questsAtivas.length) {
-        p('  (nenhuma — veja as disponíveis abaixo)', 'sistema');
-      } else {
+      if (!e.questsAtivas.length) p('  (nenhuma — veja as disponíveis abaixo)', 'sistema');
+      else {
         e.questsAtivas.forEach((qid, i) => {
           const q = QUESTS[qid];
           const progresso = Math.min(e.progresso[qid] || 0, q.objetivo.qtd);
@@ -1469,16 +1525,12 @@ export function processar(estadoAnterior, entradaBruta) {
           if (i < e.questsAtivas.length - 1) p('', 'separador');
         });
       }
-
       p('', 'espaco');
       p('◆ DISPONÍVEIS', 'titulo');
       p('', 'espaco');
-      const disp = Object.values(QUESTS).filter(
-        (q) => !e.questsAtivas.includes(q.id) && !e.questsCompletas.includes(q.id),
-      );
-      if (!disp.length) {
-        p('  (nenhuma — você aceitou ou completou todas)', 'sistema');
-      } else {
+      const disp = Object.values(QUESTS).filter((q) => !e.questsAtivas.includes(q.id) && !e.questsCompletas.includes(q.id));
+      if (!disp.length) p('  (nenhuma — você aceitou ou completou todas)', 'sistema');
+      else {
         disp.forEach((q, i) => {
           p(q.titulo, 'quest-disp');
           p(`     ${q.desc}`, 'item-desc');
@@ -1492,18 +1544,13 @@ export function processar(estadoAnterior, entradaBruta) {
           if (i < disp.length - 1) p('', 'separador');
         });
       }
-
       if (e.questsCompletas.length) {
         p('', 'espaco');
         p('◆ COMPLETAS', 'titulo');
-        e.questsCompletas.forEach((qid) => {
-          const q = QUESTS[qid];
-          if (q) p(`  ✓ ${q.titulo}`, 'quest-feita');
-        });
+        e.questsCompletas.forEach((qid) => { const q = QUESTS[qid]; if (q) p(`  ✓ ${q.titulo}`, 'quest-feita'); });
       }
       break;
     }
-
     case 'aceitar': {
       const a = normalizar(arg);
       if (!a) { p('Aceitar qual? Veja "quests" para a lista.', 'erro'); break; }
@@ -1516,11 +1563,9 @@ export function processar(estadoAnterior, entradaBruta) {
       checarQuests(e, p);
       break;
     }
-
     case 'sair':
       p('Até a próxima aventura!', 'despedida');
       break;
-
     default:
       p(`Comando desconhecido: "${partes[0]}".`, 'erro');
   }

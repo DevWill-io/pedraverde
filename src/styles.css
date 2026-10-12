@@ -2420,3 +2420,20 @@ button,
   color: var(--verde);
   font-weight: bold;
 }
+
+/* ================================================================== */
+/* AÇÕES ESPECIAIS DOS INIMIGOS                                        */
+/* ================================================================== */
+
+/* Golpe Terra, Sopro de Fogo, Magia Sombria — avisos em vermelho destaque */
+.linha.aviso .texto {
+  color: var(--amarelo);
+  font-weight: bold;
+  letter-spacing: 0.5px;
+  animation: pulsar 1.2s infinite;
+}
+
+/* Evento ruim (maldição, rugido, cura sombria) */
+.linha['evento-ruim'] .texto {
+  color: var(--vermelho);
+}
