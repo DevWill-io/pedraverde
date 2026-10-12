@@ -6,7 +6,6 @@ import { QUESTS } from '../content/quests.js';
 import { RACAS } from '../content/racas.js';
 import { CLASSES } from '../content/classes.js';
 import { MAGIAS } from '../content/magias.js';
-import { ALIASES_EN, DIRECOES_EN } from '../content/i18n.js';
 import { sortearEvento } from '../content/eventos.js';
 import { EFEITOS, EFEITOS_INIMIGOS } from '../content/efeitos.js';
 import { INIMIGOS_ARENA, ARENA_INFO } from '../content/arena.js';
@@ -15,6 +14,16 @@ import { ENCANTAMENTOS } from '../content/encantamentos.js';
 
 const d6 = () => 1 + Math.floor(Math.random() * 6);
 
+/* ================================================================== */
+/* XP — curva suave (não exponencial)                                  */
+/* ================================================================== */
+function xpProximoNivel(nivel) {
+  return Math.round(nivel * 20 + Math.pow(nivel, 1.5) * 3);
+}
+
+/* ================================================================== */
+/* Estado inicial                                                      */
+/* ================================================================== */
 export function novoJogo(opcoes = {}) {
   const nome = typeof opcoes === 'string' ? opcoes : (opcoes.nome || 'Herói');
   const racaId = opcoes.raca || 'humano';
@@ -35,7 +44,7 @@ export function novoJogo(opcoes = {}) {
     versao: 7,
     nome: (nome || '').trim() || 'Herói',
     raca: racaId, classe: classeId,
-    nivel: 1, xp: 0, xpProx: 20,
+    nivel: 1, xp: 0, xpProx: xpProximoNivel(1),
     hpMax, hp: hpMax, manaMax, mana: manaMax,
     atk: base.atk + bonus.atk, def: base.def + bonus.def,
     moedas: base.moedas,
@@ -57,7 +66,9 @@ export function novoJogo(opcoes = {}) {
   };
 }
 
-/* ---------- Helpers ---------- */
+/* ================================================================== */
+/* Helpers                                                             */
+/* ================================================================== */
 export function atkTotal(e) {
   let total = e.atk;
   for (const slot of SLOTS_EQUIP) {
@@ -113,20 +124,19 @@ function barra(a, m, l = 10) { const c = Math.max(0, Math.min(l, Math.round((a /
 
 const RARIDADES = ['comum', 'incomum', 'raro', 'epico', 'lendario', 'mitico'];
 function tipoRaridade(item) { const r = item?.raridade || 'comum'; return RARIDADES.includes(r) ? `raridade-${r}` : 'sistema'; }
-function raridadeTag(item) {
-  if (!item?.raridade || item.raridade === 'comum') return '';
-  const m = { incomum: '◆', raro: '★', epico: '✦', lendario: '✧', mitico: '✺' };
-  return ` ${m[item.raridade] || ''}`;
-}
+function raridadeTag(item) { if (!item?.raridade || item.raridade === 'comum') return ''; const m = { incomum: '◆', raro: '★', epico: '✦', lendario: '✧', mitico: '✺' }; return ` ${m[item.raridade] || ''}`; }
 
-/* ---------- Progressão ---------- */
+/* ================================================================== */
+/* Progressão                                                          */
+/* ================================================================== */
 function checarNivel(e, p) {
   while (e.xp >= e.xpProx) {
-    e.xp -= e.xpProx; e.nivel += 1;
-    e.xpProx = Math.round(e.xpProx * 1.5);
+    e.xp -= e.xpProx;
+    e.nivel += 1;
+    e.xpProx = xpProximoNivel(e.nivel);
     e.hpMax += 5; e.atk += 1; e.def += 1; e.manaMax += 3;
     e.hp = e.hpMax; e.mana = e.manaMax;
-    p(`✦ LEVEL UP! Nível ${e.nivel}.`, 'level-up');
+    p(`✦ LEVEL UP! Nível ${e.nivel}. (+5 HP, +1 ATK, +1 DEF, +3 Mana, cura total)`, 'level-up');
   }
 }
 function progredir(e, tipo, alvo, p) {
@@ -149,11 +159,14 @@ function checarQuests(e, p) {
     if (r.moedas) e.moedas += r.moedas;
     if (r.itens) r.itens.forEach((id) => addItem(e, id, 1));
     p(`✔ Quest completa: "${q.titulo}"!`, 'quest');
+    p(`   ${r.xp || 0} XP · ${r.moedas || 0} ◈${r.itens ? ' · ' + r.itens.map((i) => ITENS[i]?.nome).filter(Boolean).join(', ') : ''}`, 'loot');
     checarNivel(e, p);
   }
 }
 
-/* ---------- Efeitos ---------- */
+/* ================================================================== */
+/* Efeitos                                                             */
+/* ================================================================== */
 function aplicarEfeito(alvo, tipo, p = null, deInimigo = false) {
   const def = EFEITOS[tipo];
   if (!def) {
@@ -205,7 +218,9 @@ function resumoEfeitos(e) {
   }).filter(Boolean).join(' ');
 }
 
-/* ---------- Eventos ---------- */
+/* ================================================================== */
+/* Eventos                                                             */
+/* ================================================================== */
 function talvezEvento(e, local, p) {
   if (!local.inimigos?.length && !local.chefe) return;
   if (Math.random() > 0.15) return;
@@ -214,7 +229,9 @@ function talvezEvento(e, local, p) {
   e.estatisticas.eventosVividos += 1;
 }
 
-/* ---------- Magias ---------- */
+/* ================================================================== */
+/* Magias                                                              */
+/* ================================================================== */
 function lancarMagia(e, magiaId, p) {
   const ini = e.emCombate; if (!ini) { p('Só em combate.', 'erro'); return false; }
   const m = MAGIAS[magiaId];
@@ -249,7 +266,9 @@ function lancarMagia(e, magiaId, p) {
   return true;
 }
 
-/* ---------- Arena ---------- */
+/* ================================================================== */
+/* Arena                                                               */
+/* ================================================================== */
 function iniciarCombateArena(e, id, p) {
   const b = INIMIGOS[id];
   e.emCombate = {
@@ -276,9 +295,11 @@ function listarArena(e, p) {
   p('Use "treinar <inimigo>".', 'sistema');
 }
 
-/* ---------- Combate ---------- */
+/* ================================================================== */
+/* Combate                                                             */
+/* ================================================================== */
 const ACOES_COMBATE = ['atacar', 'forte', 'rapido', 'defender', 'esquivar', 'focar', 'fugir'];
-const PERMITIDOS_EM_COMBATE = [...ACOES_COMBATE, 'usar', 'magia', 'magias', 'inventario', 'inv', 'i', 'status', 'ajuda', 'olhar', 'equipar'];
+const PERMITIDOS_EM_COMBATE = [...ACOES_COMBATE, 'usar', 'magia', 'magias', 'inventario', 'inv', 'i', 'status', 'ajuda', 'olhar', 'equipar', 'examinar', 'inspecionar'];
 
 function iniciarCombate(e, id, p) {
   const b = INIMIGOS[id];
@@ -393,7 +414,7 @@ function processarCombate(e, cmd, arg, p) {
     p('✖ Tropeçou!', 'erro'); turnoInimigo(e, p); return;
   }
   if (cmd === 'magia') {
-    const mid = normalizar(arg); if (!mid) { p('Qual magia?', 'erro'); return; }
+    const mid = normalizar(arg); if (!mid) { p('Qual magia? Use "magias" para listar.', 'erro'); return; }
     const ok = lancarMagia(e, mid, p);
     if (ok && e.emCombate) turnoInimigo(e, p);
     return;
@@ -404,7 +425,6 @@ function processarCombate(e, cmd, arg, p) {
     ini.hp -= dano; e.estatisticas.danoTotal += dano;
     const ex = []; if (critico) ex.push('CRÍTICO'); if (cmd === 'forte') ex.push('forte'); if (cmd === 'rapido') ex.push('rápido');
     p(`⚔ Você${ex.length ? ' (' + ex.join(', ') + ')' : ''} causa ${dano}.`, critico ? 'dano-critico' : 'dano-causado');
-    // Aplica efeito elemental do encantamento da arma
     const encArma = e.encantamentos?.arma;
     if (encArma && ENCANTAMENTOS[encArma]?.efeito && ini.hp > 0) {
       const en = ENCANTAMENTOS[encArma];
@@ -433,7 +453,7 @@ function vencer(e, p) {
   p(`☠ ${ini.nome} derrotado em ${ini.turno} turnos!`, 'vitoria');
   e.xp += b.xp;
   e.estatisticas.inimigosMortos[ini.id] = (e.estatisticas.inimigosMortos[ini.id] || 0) + 1;
-  p(`+${b.xp} XP.`, 'xp');
+  p(`+${b.xp} XP. (${e.xp}/${e.xpProx})`, 'xp');
   if (b.loot?.length) {
     const n = [];
     for (const id of b.loot) { addItem(e, id, 1); n.push(ITENS[id].nome); }
@@ -464,7 +484,9 @@ function morrer(e, p) {
   p(`Acorda em Pedraverde. -${perdidas} moedas.`, 'morte');
 }
 
-/* ---------- CRAFTING ---------- */
+/* ================================================================== */
+/* CRAFTING / ENCANTAMENTO                                             */
+/* ================================================================== */
 function listarReceitas(e, p, filtro) {
   const lista = filtro ? RECEITAS.filter((r) => r.estacao === filtro) : RECEITAS;
   if (!lista.length) { p('Nenhuma receita.', 'erro'); return; }
@@ -485,7 +507,6 @@ function listarReceitas(e, p, filtro) {
   }
   p('Use "craftar <nome do item>".', 'sistema');
 }
-
 function tentarCraftar(e, arg, p) {
   const item = acharItem(arg);
   if (!item) { p('Item não encontrado.', 'erro'); return false; }
@@ -506,41 +527,29 @@ function tentarCraftar(e, arg, p) {
   p(`⚒ Você forjou ${item.nome}${raridadeTag(item)}!`, 'craft');
   return true;
 }
-
-/* ---------- ENCANTAMENTO ---------- */
 function tentarEncantar(e, slotArg, encArg, p) {
   const slot = normalizar(slotArg);
-  if (!SLOTS_EQUIP.includes(slot)) {
-    p(`Slot inválido. Use: ${SLOTS_EQUIP.join(', ')}.`, 'erro');
-    return false;
-  }
+  if (!SLOTS_EQUIP.includes(slot)) { p(`Slot inválido. Use: ${SLOTS_EQUIP.join(', ')}.`, 'erro'); return false; }
   if (!e.equipado[slot]) { p(`Nada equipado em ${slot}.`, 'erro'); return false; }
-  if (e.encantamentos?.[slot]) {
-    p(`${slot} já tem encantamento. Use "desencantar ${slot}" antes.`, 'erro');
-    return false;
-  }
+  if (e.encantamentos?.[slot]) { p(`${slot} já tem encantamento. Use "desencantar ${slot}".`, 'erro'); return false; }
   const tipo = normalizar(encArg);
   const enc = ENCANTAMENTOS[tipo];
-  if (!enc) {
-    const lista = Object.keys(ENCANTAMENTOS).join(', ');
-    p(`Encantamento inválido. Disponíveis: ${lista}.`, 'erro');
-    return false;
-  }
+  if (!enc) { p(`Encantamento inválido. Disponíveis: ${Object.keys(ENCANTAMENTOS).join(', ')}.`, 'erro'); return false; }
   if (e.nivel < enc.nivel) { p(`🔒 Precisa nível ${enc.nivel}.`, 'erro'); return false; }
   if (e.moedas < enc.moedas) { p(`Precisa ${enc.moedas}◈. Você tem ${e.moedas}.`, 'erro'); return false; }
   if (qtdItem(e, enc.gema) < 1) { p(`Precisa de ${ITENS[enc.gema]?.nome || enc.gema}.`, 'erro'); return false; }
-
   remItem(e, enc.gema, 1);
   e.moedas -= enc.moedas;
   e.encantamentos[slot] = tipo;
   e.estatisticas.itensEncantados += 1;
-
   p(`${enc.emoji} Você imbui ${ITENS[e.equipado[slot]].nome} com ${enc.nome}!`, 'encantar');
   p(`   ${enc.desc}`, 'encantar');
   return true;
 }
 
-/* ---------- Comando MAPA ---------- */
+/* ================================================================== */
+/* MAPA                                                                */
+/* ================================================================== */
 function comandoMapa(e, p) {
   const localAtual = MUNDO[e.local];
   const visitados = e.estatisticas.locaisVisitados || [];
@@ -589,7 +598,9 @@ function comandoMapa(e, p) {
   p('Legenda: ✓ visitado · ? novo · 🔒 bloqueado · ☠ chefe', 'sistema');
 }
 
-/* ---------- Entrada em local ---------- */
+/* ================================================================== */
+/* Entrada em local                                                    */
+/* ================================================================== */
 function aoEntrar(e, p) {
   const local = MUNDO[e.local];
   registrarLocal(e, e.local);
@@ -605,7 +616,7 @@ function aoEntrar(e, p) {
     p(`No chão: ${it.nome}${raridadeTag(it)} (use "pegar")`, tipoRaridade(it));
   });
   if (local.npc) p(`${local.npc.nome} está aqui. (use "falar")`, 'npc');
-  if (local.loja) p(`Loja: ${local.loja.nome}.`, 'loja-info');
+  if (local.loja) p(`Loja: ${local.loja.nome}. (use "loja")`, 'loja-info');
   const saidas = Object.entries(local.saidas || {}).map(([d, dst]) => `${d} → ${MUNDO[dst].nome}`).join(' | ');
   if (saidas) p(`Saídas: ${saidas}`, 'saidas');
   if (local.arena) { listarArena(e, p); return; }
@@ -627,16 +638,62 @@ function aoEntrar(e, p) {
   }
 }
 
-/* ---------- Comandos ---------- */
+/* ================================================================== */
+/* EXAMINAR — mostra detalhes completos de um item                     */
+/* ================================================================== */
+function examinarItem(e, arg, p) {
+  if (!arg) {
+    p('Examinar o quê? Ex: "examinar espada longa".', 'erro');
+    p('Use "inventario" para ver seus itens.', 'sistema');
+    return;
+  }
+  const item = acharItem(arg);
+  if (!item) { p(`Item "${arg}" não encontrado.`, 'erro'); return; }
+
+  p(`— ${item.nome}${raridadeTag(item)} —`, tipoRaridade(item));
+  p(`  Tipo: ${item.tipo}`, 'sistema');
+  p(`  Raridade: ${item.raridade || 'comum'}`, tipoRaridade(item));
+  p(`  Preço: ${item.preco}◈ · Venda: ${precoVenda(item)}◈`, 'sistema');
+
+  const bonus = [];
+  if (item.atk) bonus.push(`+${item.atk} ATK`);
+  if (item.def) bonus.push(`+${item.def} DEF`);
+  if (bonus.length) p(`  Bônus: ${bonus.join(', ')}`, 'stats');
+
+  if (item.cura) p(`  ✚ Restaura ${item.cura} HP`, 'cura');
+  if (item.mana) p(`  ✦ Restaura ${item.mana} MP`, 'mana');
+  if (item.magia) {
+    const mg = MAGIAS[item.magia];
+    p(`  ${mg?.emoji || '✦'} Lança ${mg?.nome || item.magia}`, 'magia');
+  }
+  if (item.buff) p(`  ✦ Aplica efeito: ${item.buff}`, 'buff');
+
+  p(`  ${item.desc}`, 'destaque');
+
+  const tem = qtdItem(e, item.id);
+  if (tem > 0) p(`  Você tem ${tem}x.`, 'sucesso');
+  else p(`  Você não possui este item.`, 'sistema');
+
+  const eq = SLOTS_EQUIP.find((s) => e.equipado[s] === item.id);
+  if (eq) {
+    const enc = e.encantamentos?.[eq];
+    p(`  Equipado em: ${eq}${enc ? ` ${ENCANTAMENTOS[enc].emoji} ${ENCANTAMENTOS[enc].nome}` : ''}`, 'equipar');
+  }
+}
+
+/* ================================================================== */
+/* Comandos                                                            */
+/* ================================================================== */
 const AJUDA = [
   'ajuda · olhar · ir <direção> · mapa',
-  'pegar · inventario · equipar · desequipar · usar · descansar',
+  'pegar · inventario · examinar <item> · equipar · desequipar',
+  'usar <item> · descansar',
   'magias · magia <nome> · efeitos',
   'bestiario · diario · treinar <inimigo> · status',
-  'receitas · craftar <item> · encantar <slot> <tipo> · desencantar <slot>',
-  'falar · loja · comprar · vender',
+  'receitas · craftar <item> · encantamentos · encantar <slot> <tipo>',
+  'falar · loja · comprar <item|número> · vender <item|número>',
   'quests · aceitar <título>',
-  'salvar · carregar · sair',
+  'salvar · carregar · limpar · sair',
   '— EM COMBATE — atacar · forte · rapido · defender · esquivar · focar · magia · fugir',
 ];
 
@@ -644,31 +701,12 @@ export function processar(estadoAnterior, entradaBruta) {
   const e = normalizarEstado(structuredClone(estadoAnterior));
   const linhas = [];
   const p = (t, tipo = 'sistema') => linhas.push({ texto: t, tipo });
-
   const raw = String(entradaBruta || '').trim();
   if (!raw) return { estado: estadoAnterior, linhas };
   p(`> ${raw}`, 'jogador');
-
-  // Suporta comandos em português e inglês
   const partes = raw.split(/\s+/);
-  let cmdRaw = normalizar(partes[0]);
-  let arg = partes.slice(1).join(' ').trim();
-
-  // Traduz comando EN → PT (se existir alias)
-  if (ALIASES_EN[cmdRaw]) {
-    // Se for direção, traduz o arg também
-    if (cmdRaw === 'go' || cmdRaw === 'walk' || cmdRaw === 'ir') {
-      const dirEn = normalizar(arg);
-      if (DIRECOES_EN[dirEn]) arg = DIRECOES_EN[dirEn];
-    }
-    cmdRaw = ALIASES_EN[cmdRaw];
-  }
-  // Se arg for uma direção em inglês (só para `ir`)
-  if (cmdRaw === 'ir' || cmdRaw === 'andar') {
-    const dEn = normalizar(arg);
-    if (DIRECOES_EN[dEn]) arg = DIRECOES_EN[dEn];
-  }
-  const cmd = cmdRaw;
+  const cmd = normalizar(partes[0]);
+  const arg = partes.slice(1).join(' ').trim();
 
   if (e.emCombate && !PERMITIDOS_EM_COMBATE.includes(cmd)) {
     p('⚔ Você está em combate!', 'erro');
@@ -719,15 +757,25 @@ export function processar(estadoAnterior, entradaBruta) {
       break;
     }
 
+    /* ========================= INVENTÁRIO ========================= */
     case 'inventario': case 'inv': case 'i': {
       if (!e.inventario.length) { p('Mochila vazia.', 'sistema'); break; }
-      p('Inventário:', 'titulo');
-      for (const it of e.inventario) {
-        const d = ITENS[it.id]; if (!d) continue;
+      p(`Inventário (${e.inventario.length} tipo${e.inventario.length > 1 ? 's' : ''}):`, 'titulo');
+      e.inventario.forEach((it, idx) => {
+        const d = ITENS[it.id]; if (!d) return;
         const eq = SLOTS_EQUIP.find((s) => e.equipado[s] === it.id);
-        const enc = eq && e.encantamentos?.[eq] ? ` ${ENCANTAMENTOS[e.encantamentos[eq]].emoji}` : '';
-        p(`  ${d.nome}${raridadeTag(d)} x${it.qtd}${eq ? ` [${eq}${enc}]` : ''}`, tipoRaridade(d));
-      }
+        const enc = eq && e.encantamentos?.[eq];
+        const tag = eq ? ` [${eq}${enc ? ' ' + ENCANTAMENTOS[enc].emoji : ''}]` : '';
+        p(`  [${idx + 1}] ${d.nome}${raridadeTag(d)} x${it.qtd}${tag}`, tipoRaridade(d));
+        p(`       ${d.desc}`, 'sistema');
+      });
+      p('Use "examinar <item>" para detalhes, "vender <número>" para vender.', 'sistema');
+      break;
+    }
+
+    /* ========================= EXAMINAR ========================= */
+    case 'examinar': case 'inspecionar': case 'ver': case 'verificar': {
+      examinarItem(e, arg, p);
       break;
     }
 
@@ -736,8 +784,13 @@ export function processar(estadoAnterior, entradaBruta) {
       if (!item) { p('Não achou.', 'erro'); break; }
       if (!qtdItem(e, item.id)) { p(`Sem ${item.nome}.`, 'erro'); break; }
       if (!SLOTS_EQUIP.includes(item.tipo)) { p('Não equipável.', 'erro'); break; }
+      const anterior = e.equipado[item.tipo];
       e.equipado[item.tipo] = item.id;
-      p(`Equipou ${item.nome} [${item.tipo}].`, 'equipar');
+      const bonus = [];
+      if (item.atk) bonus.push(`+${item.atk} ATK`);
+      if (item.def) bonus.push(`+${item.def} DEF`);
+      const extra = anterior ? ` (substituiu ${ITENS[anterior].nome})` : '';
+      p(`Equipou ${item.nome} [${item.tipo}]. ${bonus.join(', ')}${extra}`, 'equipar');
       break;
     }
 
@@ -758,7 +811,8 @@ export function processar(estadoAnterior, entradaBruta) {
       if (item.tipo !== 'consumivel') { p('Não consumível.', 'erro'); break; }
       remItem(e, item.id, 1);
       if (item.cura) { const a = e.hp; e.hp = Math.min(e.hpMax, e.hp + item.cura); p(`Usou ${item.nome}. +${e.hp - a} HP.`, 'cura'); }
-      if (item.id === 'antidoto') { e.efeitos = (e.efeitos || []).filter((ef) => EFEITOS[ef.tipo]?.tipo !== 'dano'); p('Antídoto.', 'cura'); }
+      if (item.mana) { const a = e.mana; e.mana = Math.min(e.manaMax, e.mana + item.mana); p(`Recupera ${e.mana - a} MP.`, 'mana'); }
+      if (item.id === 'antidoto') { e.efeitos = (e.efeitos || []).filter((ef) => EFEITOS[ef.tipo]?.tipo !== 'dano'); p('Antídoto limpou efeitos.', 'cura'); }
       if (e.emCombate) turnoInimigo(e, p);
       break;
     }
@@ -779,6 +833,7 @@ export function processar(estadoAnterior, entradaBruta) {
       for (const mid of e.magias) {
         const m = MAGIAS[mid]; if (!m) continue;
         p(`  ${m.emoji} ${m.nome} — ${m.mana} MP`, e.mana >= m.mana ? 'magia-disponivel' : 'magia-indisponivel');
+        p(`       ${m.desc}`, 'sistema');
       }
       break;
     }
@@ -786,7 +841,7 @@ export function processar(estadoAnterior, entradaBruta) {
     case 'efeitos': case 'buffs': {
       if (!e.efeitos?.length) { p('Sem efeitos.', 'sistema'); break; }
       p('— Efeitos —', 'titulo');
-      for (const ef of e.efeitos) { const d = EFEITOS[ef.tipo]; if (d) p(`  ${d.emoji} ${d.nome} (${ef.duracao}t)`, 'buff'); }
+      for (const ef of e.efeitos) { const d = EFEITOS[ef.tipo]; if (d) { p(`  ${d.emoji} ${d.nome} (${ef.duracao}t)`, 'buff'); p(`       ${d.desc}`, 'sistema'); } }
       break;
     }
 
@@ -799,6 +854,7 @@ export function processar(estadoAnterior, entradaBruta) {
       for (const id of ids.sort((a, b) => m[b] - m[a])) {
         const i = INIMIGOS[id]; if (!i) continue;
         p(`  ${i.nome}${i.chefe ? ' [CHEFE]' : ''} — ${m[id]}x`, 'bestiario');
+        p(`       HP ${i.hp} · ATK ${i.atk} · DEF ${i.def} · ${i.xp} XP`, 'sistema');
       }
       break;
     }
@@ -828,7 +884,7 @@ export function processar(estadoAnterior, entradaBruta) {
       break;
     }
 
-    /* ============ CRAFTING / ENCANTAMENTO ============ */
+    /* ========================= CRAFTING ========================= */
     case 'receitas': case 'receita': {
       const filtro = normalizar(arg);
       listarReceitas(e, p, filtro && ['ferraria', 'alquimia', 'cozinha'].includes(filtro) ? filtro : null);
@@ -836,7 +892,7 @@ export function processar(estadoAnterior, entradaBruta) {
     }
 
     case 'craftar': case 'forjar': case 'criar': {
-      if (!arg) { p('Craftar o quê? Use "receitas".', 'erro'); break; }
+      if (!arg) { p('Craftar o quê? Use "receitas" para ver a lista.', 'erro'); break; }
       tentarCraftar(e, arg, p);
       break;
     }
@@ -849,15 +905,12 @@ export function processar(estadoAnterior, entradaBruta) {
         break;
       }
       const partes2 = arg.split(/\s+/);
-      if (partes2.length < 2) {
-        p('Uso: "encantar <slot> <tipo>".', 'erro');
-        break;
-      }
+      if (partes2.length < 2) { p('Uso: "encantar <slot> <tipo>".', 'erro'); break; }
       tentarEncantar(e, partes2[0], partes2[1], p);
       break;
     }
 
-    case 'desencantar': case 'remover-encantamento': {
+    case 'desencantar': {
       const slot = normalizar(arg);
       if (!SLOTS_EQUIP.includes(slot)) { p(`Slot inválido.`, 'erro'); break; }
       if (!e.encantamentos?.[slot]) { p(`Nada encantado em ${slot}.`, 'erro'); break; }
@@ -868,15 +921,14 @@ export function processar(estadoAnterior, entradaBruta) {
     }
 
     case 'encantamentos': case 'lista-encantamentos': {
-      p('— Encantamentos disponíveis —', 'titulo');
+      p('— Encantamentos —', 'titulo');
       for (const [id, enc] of Object.entries(ENCANTAMENTOS)) {
         const nvOk = e.nivel >= enc.nivel;
         const gema = ITENS[enc.gema];
         const temGema = qtdItem(e, enc.gema) >= 1;
         p(`  ${enc.emoji} ${enc.nome} — ${enc.moedas}◈ + ${gema?.nome} ${temGema ? '✓' : '✗'} — Nv ${enc.nivel}${nvOk ? '✓' : '✗'}`, nvOk && temGema ? 'encantar-ok' : 'encantar-bloq');
-        p(`     ${enc.desc}`, 'sistema');
+        p(`       ${enc.desc}`, 'sistema');
       }
-      p('Use "encantar <slot> <tipo>" para aplicar.', 'sistema');
       break;
     }
 
@@ -885,15 +937,20 @@ export function processar(estadoAnterior, entradaBruta) {
       const c = CLASSES[e.classe] || CLASSES.guerreiro;
       p(`— ${e.nome} —`, 'local');
       p(`${r.emoji} ${r.nome} · ${c.emoji} ${c.nome} · Nv ${e.nivel}`, 'sistema');
+      p(`XP ${e.xp}/${e.xpProx}`, 'sistema');
       p(`HP ${e.hp}/${e.hpMax}`, 'hp-info');
       if (e.manaMax > 0) p(`MP ${e.mana}/${e.manaMax}`, 'mana');
       p(`ATK ${atkTotal(e)} | DEF ${defTotal(e)}`, 'stats');
-      p(`Moedas: ${e.moedas}`, 'sistema');
+      p(`Moedas: ${e.moedas} | Local: ${MUNDO[e.local].nome}`, 'sistema');
+      p('Equipamento:', 'titulo');
       for (const slot of SLOTS_EQUIP) {
         const id = e.equipado[slot];
         if (id) {
+          const it = ITENS[id];
           const enc = e.encantamentos?.[slot] ? ` ${ENCANTAMENTOS[e.encantamentos[slot]].emoji}` : '';
-          p(`  ${slot}: ${ITENS[id].nome}${enc}`, tipoRaridade(ITENS[id]));
+          p(`  ${slot.padEnd(9)} ${it.nome}${enc}`, tipoRaridade(it));
+        } else {
+          p(`  ${slot.padEnd(9)} —`, 'sistema');
         }
       }
       break;
@@ -906,61 +963,162 @@ export function processar(estadoAnterior, entradaBruta) {
       break;
     }
 
-    case 'loja': {
-      if (!local.loja) { p('Sem loja.', 'erro'); break; }
+    /* ========================= LOJA ========================= */
+    case 'loja': case 'shop': {
+      if (!local.loja) { p('Sem loja aqui.', 'erro'); break; }
       p(`— ${local.loja.nome} —`, 'loja-titulo');
-      for (const id of local.loja.itens) {
-        const it = ITENS[id]; if (!it) continue;
-        p(`  ${it.nome}${raridadeTag(it)} — ${it.preco}◈`, tipoRaridade(it));
-      }
+      p('Itens à venda:', 'titulo');
+      local.loja.itens.forEach((id, i) => {
+        const it = ITENS[id]; if (!it) return;
+        p(`  [${i + 1}] ${it.nome}${raridadeTag(it)} [${it.tipo}] — ${it.preco} ◈`, tipoRaridade(it));
+        p(`       ${it.desc}`, 'sistema');
+        const bonus = [];
+        if (it.atk) bonus.push(`+${it.atk} ATK`);
+        if (it.def) bonus.push(`+${it.def} DEF`);
+        if (it.cura) bonus.push(`cura ${it.cura} HP`);
+        if (it.mana) bonus.push(`+${it.mana} MP`);
+        if (bonus.length) p(`       Bônus: ${bonus.join(', ')}`, 'stats');
+      });
+      p('', 'sistema');
+      p('Use "comprar <número>" ou "comprar <nome>".', 'sistema');
+      p('Use "vender <item>" para vender algo seu.', 'sistema');
       break;
     }
 
-    case 'comprar': {
-      if (!local.loja) { p('Sem loja.', 'erro'); break; }
-      const item = acharItem(arg);
-      if (!item || !local.loja.itens.includes(item.id)) { p('Não vende.', 'erro'); break; }
-      if (e.moedas < item.preco) { p('Sem moedas.', 'erro'); break; }
-      e.moedas -= item.preco; addItem(e, item.id, 1);
-      p(`Comprou ${item.nome}.`, 'compra');
+    case 'comprar': case 'buy': {
+      if (!local.loja) { p('Sem loja aqui.', 'erro'); break; }
+      if (!arg) {
+        p('Comprar o quê? Use "loja" para ver a lista.', 'erro');
+        break;
+      }
+      let item = null;
+      const argClean = arg.trim();
+      // Se for número, pega da lista da loja
+      if (/^\d+$/.test(argClean)) {
+        const idx = parseInt(argClean, 10) - 1;
+        if (idx >= 0 && idx < local.loja.itens.length) {
+          item = ITENS[local.loja.itens[idx]];
+        }
+      } else {
+        item = acharItem(arg);
+      }
+      if (!item || !local.loja.itens.includes(item.id)) {
+        p('O lojista não vende esse item.', 'erro');
+        p('Use "loja" para ver a lista numerada.', 'sistema');
+        break;
+      }
+      if (e.moedas < item.preco) {
+        p(`Moedas insuficientes. Você tem ${e.moedas}, precisa de ${item.preco}.`, 'erro');
+        break;
+      }
+      e.moedas -= item.preco;
+      addItem(e, item.id, 1);
+      p(`Comprou ${item.nome}${raridadeTag(item)} por ${item.preco}◈. (restam ${e.moedas})`, 'compra');
       progredir(e, 'comprar', 'qualquer', p);
       break;
     }
 
-    case 'vender': {
-      if (!local.loja) { p('Sem loja.', 'erro'); break; }
-      const item = acharItem(arg);
-      if (!item || !qtdItem(e, item.id)) { p('Não tem.', 'erro'); break; }
-      const v = precoVenda(item);
-      remItem(e, item.id, 1);
-      for (const s of SLOTS_EQUIP) if (e.equipado[s] === item.id && !qtdItem(e, item.id)) { e.equipado[s] = null; e.encantamentos[s] = null; }
-      e.moedas += v;
-      p(`Vendeu ${item.nome} por ${v}◈.`, 'venda');
+    case 'vender': case 'sell': {
+      if (!local.loja) { p('Sem loja aqui.', 'erro'); break; }
+      if (!arg) {
+        p('Vender o quê? Use "inventario" para ver a lista numerada.', 'erro');
+        break;
+      }
+      let itemId = null;
+      const argClean = arg.trim();
+      if (/^\d+$/.test(argClean)) {
+        const idx = parseInt(argClean, 10) - 1;
+        if (idx >= 0 && idx < e.inventario.length) {
+          itemId = e.inventario[idx].id;
+        }
+      } else {
+        const found = acharItem(arg);
+        if (found && qtdItem(e, found.id)) itemId = found.id;
+      }
+      if (!itemId) {
+        p('Você não tem esse item.', 'erro');
+        p('Use "inventario" para ver a lista numerada.', 'sistema');
+        break;
+      }
+      const item = ITENS[itemId];
+      const valor = precoVenda(item);
+      remItem(e, itemId, 1);
+      for (const s of SLOTS_EQUIP) {
+        if (e.equipado[s] === itemId && !qtdItem(e, itemId)) {
+          e.equipado[s] = null;
+          e.encantamentos[s] = null;
+        }
+      }
+      e.moedas += valor;
+      p(`Vendeu ${item.nome} por ${valor}◈. (total ${e.moedas})`, 'venda');
       break;
     }
 
+    /* ========================= QUESTS ========================= */
     case 'quests': case 'quest': {
-      p('Ativas:', 'titulo');
-      if (!e.questsAtivas.length) p('  (nenhuma)', 'sistema');
-      for (const qid of e.questsAtivas) {
-        const q = QUESTS[qid];
-        p(`  ${q.titulo} — ${Math.min(e.progresso[qid] || 0, q.objetivo.qtd)}/${q.objetivo.qtd}`, 'quest-ativa');
+      // ATIVAS
+      p('━━━ QUESTS ATIVAS ━━━', 'titulo');
+      if (!e.questsAtivas.length) {
+        p('  (nenhuma — veja as disponíveis abaixo)', 'sistema');
+      } else {
+        for (const qid of e.questsAtivas) {
+          const q = QUESTS[qid];
+          const progresso = Math.min(e.progresso[qid] || 0, q.objetivo.qtd);
+          const completo = progresso >= q.objetivo.qtd;
+          p(`  ◆ ${q.titulo} — ${progresso}/${q.objetivo.qtd}${completo ? ' ✓' : ''}`, 'quest-ativa');
+          p(`      ${q.desc}`, 'sistema');
+          const r = q.recompensa || {};
+          const partes = [];
+          if (r.xp) partes.push(`${r.xp} XP`);
+          if (r.moedas) partes.push(`${r.moedas} ◈`);
+          if (r.itens) partes.push(r.itens.map((i) => ITENS[i]?.nome).filter(Boolean).join(', '));
+          if (partes.length) p(`      Recompensa: ${partes.join(' · ')}`, 'loot');
+        }
       }
-      p('Disponíveis:', 'titulo');
-      const disp = Object.values(QUESTS).filter((q) => !e.questsAtivas.includes(q.id) && !e.questsCompletas.includes(q.id));
-      if (!disp.length) p('  (nenhuma)', 'sistema');
-      disp.forEach((q) => p(`  ${q.titulo}`, 'quest-disp'));
+
+      // DISPONÍVEIS
+      p('', 'sistema');
+      p('━━━ DISPONÍVEIS ━━━', 'titulo');
+      const disp = Object.values(QUESTS).filter(
+        (q) => !e.questsAtivas.includes(q.id) && !e.questsCompletas.includes(q.id),
+      );
+      if (!disp.length) {
+        p('  (nenhuma — você aceitou ou completou todas)', 'sistema');
+      } else {
+        for (const q of disp) {
+          p(`  ○ ${q.titulo}`, 'quest-disp');
+          p(`      ${q.desc}`, 'sistema');
+          const r = q.recompensa || {};
+          const partes = [];
+          if (r.xp) partes.push(`${r.xp} XP`);
+          if (r.moedas) partes.push(`${r.moedas} ◈`);
+          if (r.itens) partes.push(r.itens.map((i) => ITENS[i]?.nome).filter(Boolean).join(', '));
+          if (partes.length) p(`      Recompensa: ${partes.join(' · ')}`, 'loot');
+          p(`      Para aceitar: aceitar ${q.titulo}`, 'sistema');
+        }
+      }
+
+      // COMPLETAS
+      if (e.questsCompletas.length) {
+        p('', 'sistema');
+        p('━━━ COMPLETAS ━━━', 'titulo');
+        for (const qid of e.questsCompletas) {
+          const q = QUESTS[qid];
+          if (q) p(`  ✓ ${q.titulo}`, 'quest-feita');
+        }
+      }
       break;
     }
 
     case 'aceitar': {
       const a = normalizar(arg);
-      if (!a) { p('Aceitar qual?', 'erro'); break; }
+      if (!a) { p('Aceitar qual? Veja "quests" para a lista.', 'erro'); break; }
       const q = Object.values(QUESTS).find((x) => normalizar(x.titulo).includes(a));
-      if (!q) { p('Não achou.', 'erro'); break; }
+      if (!q) { p('Quest não encontrada.', 'erro'); break; }
       if (e.questsCompletas.includes(q.id) || e.questsAtivas.includes(q.id)) { p('Já tem.', 'erro'); break; }
       e.questsAtivas.push(q.id);
-      p(`Aceitou: "${q.titulo}".`, 'quest-aceita');
+      p(`✔ Quest aceita: "${q.titulo}"`, 'quest-aceita');
+      p(`   ${q.desc}`, 'sistema');
       checarQuests(e, p);
       break;
     }
