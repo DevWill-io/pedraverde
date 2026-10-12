@@ -117,11 +117,14 @@ function avancarTempo(e, p) {
   if (e.contadorTempo < 5) return;
   e.contadorTempo = 0;
 
-  const horaAntiga = e.hora || 12;
-  e.hora = avancarHora(e.hora || 12, 1);
+  const horaAntiga = e.hora || 6;
+  e.hora = avancarHora(e.hora || 6, 1);
 
-  // Nova hora = 0 = meia-noite, avança o dia
-  if (e.hora === 0) e.dia = (e.dia || 1) + 1;
+  // Se chegou à meia-noite, avança o dia e pula direto pro amanhecer (06:00)
+  if (e.hora === 0) {
+    e.dia = (e.dia || 1) + 1;
+    e.hora = 6;
+  }
 
   // Anuncia mudanças notáveis
   const periodoAntigo = calcularPeriodo(horaAntiga).id;
