@@ -84,7 +84,7 @@ export function novoJogo(opcoes = {}) {
     efeitos: [],
     local: 'pedraverde',
     // ⭐ Sistema de tempo e clima
-    hora: 12,           // começa ao meio-dia
+    hora: 6,           // começa ao meio-dia
     dia: 1,             // dia 1
     climaAtual: 'limpo',
     contadorTempo: 0,   // quantos comandos desde o último avanço
@@ -229,7 +229,7 @@ function normalizarEstado(e) {
   if (!e.raca) e.raca = 'humano';
   if (!e.classe) e.classe = 'guerreiro';
   // ⭐ Sistema de tempo (retrocompatível)
-  if (typeof e.hora !== 'number') e.hora = 12;
+  if (typeof e.hora !== 'number') e.hora = 6;
   if (typeof e.dia !== 'number') e.dia = 1;
   if (!e.climaAtual) e.climaAtual = 'limpo';
   if (typeof e.contadorTempo !== 'number') e.contadorTempo = 0;
