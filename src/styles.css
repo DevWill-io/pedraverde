@@ -2437,3 +2437,41 @@ button,
 .linha['evento-ruim'] .texto {
   color: var(--vermelho);
 }
+
+/* ================================================================== */
+/* CONQUISTAS E TÍTULOS                                                */
+/* ================================================================== */
+
+/* Notificação de conquista desbloqueada */
+.linha.conquista .prefixo { color: #ffd166; }
+.linha.conquista .texto {
+  color: #ffd166;
+  font-weight: bold;
+  text-shadow: 0 0 10px rgba(255, 209, 102, 0.7);
+  animation: brilhar 1.5s ease;
+}
+
+.linha['conquista-desc'] .texto { color: var(--texto-fraco); font-style: italic; }
+.linha['conquista-info'] .texto { color: var(--azul); font-weight: bold; }
+.linha['conquista-ok'] .texto { color: var(--verde); }
+.linha['conquista-bloq'] .texto { color: var(--texto-fraco); opacity: 0.65; }
+
+/* Título no header */
+.tag-titulo {
+  margin-left: 6px;
+  color: #ffd166;
+  font-size: 11px;
+  font-style: italic;
+  opacity: 0.85;
+  letter-spacing: 0.3px;
+}
+
+/* Mobile: título em linha separada se ficar apertado */
+@media (max-width: 480px) {
+  .tag-titulo {
+    display: block;
+    margin-left: 0;
+    font-size: 10px;
+    margin-top: 1px;
+  }
+}
