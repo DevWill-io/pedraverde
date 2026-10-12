@@ -26,6 +26,58 @@ injetarItens(ITENS);
 const d6 = () => 1 + Math.floor(Math.random() * 6);
 
 /* ================================================================== */
+/* Filtros de inventário                                               */
+/* ================================================================== */
+const FILTROS_INVENTARIO = {
+  /* ---------- por tipo ---------- */
+  arma:         { label: 'armas',       fn: (d) => d.tipo === 'arma' },
+  armas:        { label: 'armas',       fn: (d) => d.tipo === 'arma' },
+  escudo:       { label: 'escudos',     fn: (d) => d.tipo === 'escudo' },
+  escudos:      { label: 'escudos',     fn: (d) => d.tipo === 'escudo' },
+  elmo:         { label: 'elmos',       fn: (d) => d.tipo === 'elmo' },
+  elmos:        { label: 'elmos',       fn: (d) => d.tipo === 'elmo' },
+  armadura:     { label: 'armaduras',   fn: (d) => d.tipo === 'armadura' },
+  armaduras:    { label: 'armaduras',   fn: (d) => d.tipo === 'armadura' },
+  botas:        { label: 'botas',       fn: (d) => d.tipo === 'botas' },
+  anel:         { label: 'anéis',       fn: (d) => d.tipo === 'anel' },
+  aneis:        { label: 'anéis',       fn: (d) => d.tipo === 'anel' },
+  colar:        { label: 'colares',     fn: (d) => d.tipo === 'colar' },
+  colares:      { label: 'colares',     fn: (d) => d.tipo === 'colar' },
+  capa:         { label: 'capas',       fn: (d) => d.tipo === 'capa' },
+  capas:        { label: 'capas',       fn: (d) => d.tipo === 'capa' },
+  consumivel:   { label: 'consumíveis', fn: (d) => d.tipo === 'consumivel' },
+  consumiveis:  { label: 'consumíveis', fn: (d) => d.tipo === 'consumivel' },
+  pocao:        { label: 'poções',      fn: (d) => d.tipo === 'consumivel' },
+  pocoes:       { label: 'poções',      fn: (d) => d.tipo === 'consumivel' },
+  pergaminho:   { label: 'pergaminhos', fn: (d) => d.tipo === 'consumivel' && d.magia },
+  pergaminhos:  { label: 'pergaminhos', fn: (d) => d.tipo === 'consumivel' && d.magia },
+  comida:       { label: 'comidas',     fn: (d) => d.tipo === 'consumivel' && d.cura && !d.magia && !d.buff },
+  comidas:      { label: 'comidas',     fn: (d) => d.tipo === 'consumivel' && d.cura && !d.magia && !d.buff },
+  material:     { label: 'materiais',   fn: (d) => d.tipo === 'material' },
+  materiais:    { label: 'materiais',   fn: (d) => d.tipo === 'material' },
+  gema:         { label: 'gemas',       fn: (d) => d.tipo === 'material' && (d.id?.startsWith('gema_') || d.id === 'cristal') },
+  gemas:        { label: 'gemas',       fn: (d) => d.tipo === 'material' && (d.id?.startsWith('gema_') || d.id === 'cristal') },
+
+  /* ---------- por equipado ---------- */
+  equipado:     { label: 'equipados',   fn: (d, id, e) => Object.values(e.equipado).includes(id) },
+  equipados:    { label: 'equipados',   fn: (d, id, e) => Object.values(e.equipado).includes(id) },
+
+  /* ---------- por raridade ---------- */
+  comum:        { label: 'comuns',      fn: (d) => !d.raridade || d.raridade === 'comum' },
+  comuns:       { label: 'comuns',      fn: (d) => !d.raridade || d.raridade === 'comum' },
+  incomum:      { label: 'incomuns',    fn: (d) => d.raridade === 'incomum' },
+  incomuns:     { label: 'incomuns',    fn: (d) => d.raridade === 'incomum' },
+  raro:         { label: 'raros+',      fn: (d) => ['raro', 'epico', 'lendario', 'mitico'].includes(d.raridade) },
+  raros:        { label: 'raros+',      fn: (d) => ['raro', 'epico', 'lendario', 'mitico'].includes(d.raridade) },
+  epico:        { label: 'épicos+',     fn: (d) => ['epico', 'lendario', 'mitico'].includes(d.raridade) },
+  epicos:       { label: 'épicos+',     fn: (d) => ['epico', 'lendario', 'mitico'].includes(d.raridade) },
+  lendario:     { label: 'lendários+',  fn: (d) => ['lendario', 'mitico'].includes(d.raridade) },
+  lendarios:    { label: 'lendários+',  fn: (d) => ['lendario', 'mitico'].includes(d.raridade) },
+  mitico:       { label: 'míticos',     fn: (d) => d.raridade === 'mitico' },
+  miticos:      { label: 'míticos',     fn: (d) => d.raridade === 'mitico' },
+};
+
+/* ================================================================== */
 /* XP                                                                  */
 /* ================================================================== */
 function xpProximoNivel(nivel) {
@@ -1380,26 +1432,106 @@ export function processar(estadoAnterior, entradaBruta) {
       checarConquistas(e, p);
       break;
     }
+        /* ========================= INVENTÁRIO ========================= */
     case 'inventario': case 'inv': case 'i': {
       if (!e.inventario.length) { p('Mochila vazia.', 'sistema'); break; }
-      p(`◆ Inventário (${e.inventario.length} tipo${e.inventario.length > 1 ? 's' : ''})`, 'titulo');
+
+      /* ---------- Parseia filtros e ordenação ---------- */
+      const palavras = arg.split(/\s+/).filter(Boolean).map(normalizar);
+      const filtrosAplicados = [];
+      let ordenacao = null;
+
+      // Cada palavra pode ser: filtro OU ordenação
+      for (const w of palavras) {
+        if (['preco', 'nome', 'raridade', 'tipo', 'qtd'].includes(w)) {
+          ordenacao = w;
+          continue;
+        }
+        const filtro = FILTROS_INVENTARIO[w];
+        if (filtro) {
+          filtrosAplicados.push({ nome: w, fn: filtro.fn });
+        }
+      }
+
+      // Aplica filtros
+      let lista = e.inventario.filter((it) => {
+        const d = ITENS[it.id];
+        if (!d) return false;
+        return filtrosAplicados.every((f) => f.fn(d, it.id, e));
+      });
+
+      // Aplica ordenação
+      if (ordenacao) {
+        const ORD = {
+          preco: (a, b) => (ITENS[b.id]?.preco || 0) - (ITENS[a.id]?.preco || 0),
+          nome: (a, b) => (ITENS[a.id]?.nome || '').localeCompare(ITENS[b.id]?.nome || ''),
+          raridade: (a, b) => {
+            const ordem = { mitico: 5, lendario: 4, epico: 3, raro: 2, incomum: 1, comum: 0 };
+            const ra = ordem[ITENS[a.id]?.raridade || 'comum'] || 0;
+            const rb = ordem[ITENS[b.id]?.raridade || 'comum'] || 0;
+            return rb - ra;
+          },
+          tipo: (a, b) => (ITENS[a.id]?.tipo || '').localeCompare(ITENS[b.id]?.tipo || ''),
+          qtd: (a, b) => b.qtd - a.qtd,
+        };
+        lista = [...lista].sort(ORD[ordenacao]);
+      }
+
+      /* ---------- Cabeçalho ---------- */
+      if (filtrosAplicados.length || ordenacao) {
+        const tags = [];
+        filtrosAplicados.forEach((f) => tags.push(FILTROS_INVENTARIO[f.nome].label));
+        if (ordenacao) tags.push(`ordenado por ${ordenacao}`);
+        p(`◆ Inventário — ${tags.join(' · ')}`, 'titulo');
+      } else {
+        p(`◆ Inventário (${e.inventario.length} tipo${e.inventario.length > 1 ? 's' : ''})`, 'titulo');
+      }
+
+      /* ---------- Sem resultados ---------- */
+      if (!lista.length) {
+        p('', 'espaco');
+        if (filtrosAplicados.length) {
+          p(`Nenhum item encontrado para: ${filtrosAplicados.map((f) => f.nome).join(', ')}`, 'erro');
+          p('Use "inventario" sem filtros para ver tudo.', 'sistema');
+        } else {
+          p('Nada para mostrar.', 'erro');
+        }
+        break;
+      }
+
+      /* ---------- Lista ---------- */
       p('', 'espaco');
-      e.inventario.forEach((it, idx) => {
-        const d = ITENS[it.id]; if (!d) return;
+      lista.forEach((it) => {
+        const idxOriginal = e.inventario.findIndex((x) => x.id === it.id);
+        const d = ITENS[it.id];
         const eq = SLOTS_EQUIP.find((s) => e.equipado[s] === it.id);
         const enc = eq && e.encantamentos?.[eq];
         const equipTag = eq ? `  ⚔ equipado${enc ? ' ' + ENCANTAMENTOS[enc].emoji : ''}` : '';
-        p(`[${idx + 1}] ${d.nome}${raridadeTag(d)} ×${it.qtd}${equipTag}`, tipoRaridade(d));
+        p(`[${idxOriginal + 1}] ${d.nome}${raridadeTag(d)} ×${it.qtd}${equipTag}`, tipoRaridade(d));
         p(`     ${d.desc}`, 'item-desc');
         const bonus = [];
         if (d.atk) bonus.push(`+${d.atk} ATK`);
         if (d.def) bonus.push(`+${d.def} DEF`);
         if (d.cura) bonus.push(`+${d.cura} HP`);
         if (d.mana) bonus.push(`+${d.mana} MP`);
-        if (bonus.length) p(`     ${bonus.join(' · ')}`, 'item-bonus');
+        if (bonus.length) p(`     ${bonus.join(' · ')} · ${d.preco}◈`, 'item-bonus');
+        else p(`     ${d.preco}◈`, 'item-preco');
         p('', 'separador');
       });
-      p('Use "examinar <item>" para detalhes ou "vender <número>".', 'sistema');
+
+      /* ---------- Rodapé com resumo ---------- */
+      const totalTipos = lista.length;
+      const totalUnidades = lista.reduce((acc, it) => acc + it.qtd, 0);
+      const valorTotal = lista.reduce((acc, it) => acc + (ITENS[it.id]?.preco || 0) * it.qtd, 0);
+      p(`Total: ${totalTipos} tipo${totalTipos > 1 ? 's' : ''} · ${totalUnidades} unidade${totalUnidades > 1 ? 's' : ''} · ${valorTotal}◈ em valor`, 'stats');
+
+      /* ---------- Dica de filtros ---------- */
+      if (!filtrosAplicados.length && !ordenacao) {
+        p('', 'espaco');
+        p('💡 Filtros: inventario arma · armadura · consumivel · material · raro · equipado', 'sistema');
+        p('💡 Ordenar: inventario preco · nome · raridade · tipo · qtd', 'sistema');
+        p('💡 Combinar: inventario arma raro preco', 'sistema');
+      }
       break;
     }
     case 'examinar': case 'inspecionar': case 'ver': case 'verificar':

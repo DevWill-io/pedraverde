@@ -2615,3 +2615,13 @@ button,
     display: none; /* Esconde em telas muito pequenas */
   }
 } 
+
+/* ================================================================== */
+/* FILTROS DE INVENTÁRIO                                               */
+/* ================================================================== */
+
+/* O rodapé com resumo (total de itens + valor) */
+.linha.stats .texto {
+  color: var(--azul);
+  font-weight: bold;
+}
