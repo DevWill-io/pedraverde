@@ -10,11 +10,11 @@ import { EFEITOS } from '../content/efeitos.js';
 import { ENCANTAMENTOS } from '../content/encantamentos.js';
 import { calcularPeriodo, formatarHora, getClima } from '../content/clima.js';
 import { traduzir } from '../content/i18n.js';
-import { tocar, somDeLinha } from '../audio.js';
 import { chatDisponivel, rankingDisponivel } from '../chat.js';
 import { PREFIXOS } from '../constants/prefixos.js';
 import { TOAST_TIPOS } from '../constants/toasts.js';
-import { iniciarAmbiente, pararAmbiente } from '../audio.js';
+import { capituloAtual, CAMPANHA } from '../content/campanha.js';
+import { tocar, somDeLinha, iniciarAmbiente, pararAmbiente } from '../audio.js';
 
 const MAX_LOG = 1000;
 const ACOES_COMBATE_RAPIDAS = ['atacar', 'forte', 'rapido', 'defender', 'esquivar', 'focar', 'fugir'];
@@ -184,8 +184,8 @@ export default function TelaJogo({
   const pctMp = estado.manaMax > 0 ? Math.max(0, Math.min(100, (estado.mana / estado.manaMax) * 100)) : 0;
   const atalhos = useMemo(
     () => idioma === 'en'
-      ? ['look', 'map', 'weather', 'stats', 'inventory', 'spells', 'talents', 'achievements', 'quests', 'daily', 'help']
-      : ['olhar', 'mapa', 'clima', 'status', 'inventario', 'magias', 'talentos', 'conquistas', 'quests', 'diarias', 'ajuda'],
+      ? ['look', 'map', 'weather', 'stats', 'inventory', 'spells', 'talents', 'campaign', 'daily', 'help']
+      : ['olhar', 'mapa', 'clima', 'status', 'inventario', 'magias', 'talentos', 'campanha', 'diarias', 'ajuda'],
     [idioma],
   );
 
@@ -236,6 +236,15 @@ export default function TelaJogo({
           {estado.diarias?.recompensaPendente > 0 && (
             <span className="tag tag-diaria" title="Recompensa diária disponível">📅!</span>
           )}
+          {estado.campanha && (() => {
+            const { indice, cap } = capituloAtual(estado);
+            if (!cap) return <span className="tag tag-campanha-completa">🏆 Campanha completa</span>;
+            return (
+              <span className="tag tag-campanha" title={`Capítulo ${indice + 1}/${CAMPANHA.length}: ${cap.titulo}`}>
+                {cap.emoji} {indice + 1}/{CAMPANHA.length}
+              </span>
+            );
+          })()}
           {(estado.diarias?.concluidas || []).some((id) => !(estado.diarias?.reivindicadas || []).includes(id)) && (
             <span className="tag tag-diaria" title="Missão diária completa">📅✓</span>
           )}

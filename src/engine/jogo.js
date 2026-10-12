@@ -28,6 +28,9 @@ import {
   DUNGEON_INFO, gerarDungeon, bonusPorAndar,
   poolInimigos, poolMiniChefes, poolChefeFinal,
 } from '../content/dungeon.js'; 
+import {
+  PROLOGO, CAMPANHA, FINAIS, capituloAtual, totalCapitulos, falasAldric,
+} from '../content/campanha.js';
 
 injetarItens(ITENS);
 
@@ -169,7 +172,13 @@ export function novoJogo(opcoes = {}) {
     titulo: null,
     questsAtivas: [], questsCompletas: [], progresso: {}, flags: {},
     emCombate: null,
-    dungeon: null,   // ⭐ Dungeon procedural ativa (ou null)
+    dungeon: null,
+    campanha: {
+      prologoVisto: false,
+      capitulosCompletos: [],
+      final: null,          // 'matar' | 'poupar' | 'juntar' | null
+      escolhaFinalFeita: false,
+    },
     estatisticas: {
       locaisVisitados: ['pedraverde'], inimigosMortos: {},
       mortes: 0, danoTotal: 0, danoRecebido: 0, magiasLancadas: 0,
@@ -327,8 +336,23 @@ function normalizarEstado(e) {
   if (typeof e.estatisticas.itensCriados !== 'number') e.estatisticas.itensCriados = 0;
   if (typeof e.estatisticas.itensEncantados !== 'number') e.estatisticas.itensEncantados = 0;
   if (typeof e.estatisticas.fugasInimigos !== 'number') e.estatisticas.fugasInimigos = 0;
-    // ⭐ Dungeon (retrocompatível)
-  if (e.dungeon === undefined) e.dungeon = null;
+    // ⭐ Campanha (retrocompatível)
+  if (!e.campanha) {
+    e.campanha = {
+      prologoVisto: false,
+      capitulosCompletos: [],
+      final: null,
+      escolhaFinalFeita: false,
+    };
+  }
+  // Marca retroativamente os capítulos completos baseado nas flags
+  if (Array.isArray(CAMPANHA)) {
+    for (const cap of CAMPANHA) {
+      if (cap.check(e) && !e.campanha.capitulosCompletos.includes(cap.id)) {
+        e.campanha.capitulosCompletos.push(cap.id);
+      }
+    }
+  }
   return e;
 }
 
@@ -1177,6 +1201,7 @@ function vencer(e, p) {
   if (b.chefe) progredirDiaria(e, 'matar_chefe', 1, p);
   checarNivel(e, p);
   checarConquistas(e, p);
+  verificarProgressoCampanha(e, p);   // ⭐ NOVO
 
   /* ⭐ Se matou o chefe final da dungeon, conclui */
   if (role === 'chefe_final') {
@@ -1646,6 +1671,175 @@ function iniciarCombateDungeon(e, id, p, bonus, role) {
 }
 
 /* ================================================================== */
+/* CAMPANHA NARRATIVA                                                  */
+/* ================================================================== */
+
+function verificarProgressoCampanha(e, p) {
+  if (!e.campanha) return;
+  for (const cap of CAMPANHA) {
+    if (e.campanha.capitulosCompletos.includes(cap.id)) continue;
+    if (cap.check(e)) {
+      e.campanha.capitulosCompletos.push(cap.id);
+      p('', 'espaco');
+      p('✦ ═══════════════════════════════════════ ✦', 'campanha-marco');
+      p(`✦ CAPÍTULO COMPLETO: ${cap.titulo}`, 'campanha-marco');
+      p('✦ ═══════════════════════════════════════ ✦', 'campanha-marco');
+      if (cap.recompensa) {
+        if (cap.recompensa.moedas) e.moedas += cap.recompensa.moedas;
+        if (cap.recompensa.xp) e.xp += cap.recompensa.xp;
+        if (cap.recompensa.itens) cap.recompensa.itens.forEach((id) => addItem(e, id, 1));
+        const r = cap.recompensa;
+        const partes = [];
+        if (r.moedas) partes.push(`${r.moedas} ◈`);
+        if (r.xp) partes.push(`${r.xp} XP`);
+        if (r.itens) partes.push(r.itens.map((i) => ITENS[i]?.nome).filter(Boolean).join(', '));
+        if (partes.length) p(`   Recompensa: ${partes.join(' · ')}`, 'loot');
+      }
+      const proximo = CAMPANHA.find((c) => !e.campanha.capitulosCompletos.includes(c.id));
+      if (proximo) {
+        p('', 'espaco');
+        p(`→ Próximo capítulo: ${proximo.titulo}`, 'campanha-proximo');
+        p(`   ${proximo.objetivo}`, 'campanha-objetivo');
+      } else {
+        p('', 'espaco');
+        p('→ A campanha principal está completa. Fale com o Sábio Aldric.', 'campanha-proximo');
+      }
+      p('', 'espaco');
+      checarNivel(e, p);
+    }
+  }
+}
+
+function comandoCampanha(e, p) {
+  const { indice, cap } = capituloAtual(e);
+  const total = totalCapitulos();
+  p('◆ Campanha Principal', 'titulo');
+  p(`Progresso: ${indice}/${total} capítulos`, 'campanha-info');
+  p('', 'espaco');
+  p('━━━ CAPÍTULOS ━━━', 'titulo');
+  for (let i = 0; i < CAMPANHA.length; i++) {
+    const c = CAMPANHA[i];
+    const feito = e.campanha.capitulosCompletos.includes(c.id);
+    const atual = !feito && i === indice;
+    const tipo = feito ? 'campanha-feito' : atual ? 'campanha-atual' : 'campanha-bloqueado';
+    const status = feito ? '✓' : atual ? '▶' : '🔒';
+    p(`${status} ${c.emoji} ${c.titulo}`, tipo);
+    if (atual) {
+      p(`     ${c.desc}`, 'item-desc');
+      p(`     Objetivo: ${c.objetivo}`, 'campanha-objetivo');
+      p(`     Nível recomendado: ${c.nivelRecomendado}`, 'item-info');
+    } else if (feito) {
+      p(`     ${c.desc}`, 'item-desc');
+    }
+  }
+  if (e.campanha.final) {
+    const f = FINAIS[e.campanha.final];
+    p('', 'espaco');
+    p(`◆ Final alcançado: ${f.emoji} ${f.titulo}`, f.cor);
+  }
+}
+
+function comandoPrologo(e, p) {
+  if (!e.campanha.prologoVisto) e.campanha.prologoVisto = true;
+  p('', 'espaco');
+  PROLOGO.split('\n').forEach((linha) => p(linha, 'prologo'));
+  p('', 'espaco');
+}
+
+function escolhaFinal(e, opcao, p) {
+  const { indice } = capituloAtual(e);
+  if (indice < CAMPANHA.length) {
+    p('Você ainda não chegou ao final da campanha.', 'erro');
+    p('Complete todos os capítulos primeiro. Use "campanha" para ver o progresso.', 'sistema');
+    return;
+  }
+  if (e.campanha.escolhaFinalFeita) {
+    p('Você já fez sua escolha.', 'erro');
+    const f = FINAIS[e.campanha.final];
+    p(`Final atual: ${f.emoji} ${f.titulo}`, f.cor);
+    return;
+  }
+  const escolha = normalizar(opcao);
+  const mapa = {
+    matar: 'matar', kill: 'matar', derrotar: 'matar', 'matar o rei': 'matar',
+    poupar: 'poupar', spare: 'poupar', perdoar: 'poupar',
+    juntar: 'juntar', join: 'juntar', aceitar: 'juntar', coroa: 'juntar',
+  };
+  const qual = mapa[escolha];
+  if (!qual) {
+    p('Escolha inválida. Use:', 'erro');
+    p('  escolher matar  — Derrote o Rei Antigo', 'sistema');
+    p('  escolher poupar — Pereoe-o', 'sistema');
+    p('  escolher juntar — Reclame a coroa', 'sistema');
+    return;
+  }
+  e.campanha.final = qual;
+  e.campanha.escolhaFinalFeita = true;
+  const f = FINAIS[qual];
+  p('', 'espaco');
+  p('✦ ═══════════════════════════════════════ ✦', f.cor);
+  p(`✦ FINAL: ${f.emoji} ${f.titulo}`, f.cor);
+  p('✦ ═══════════════════════════════════════ ✦', f.cor);
+  p('', 'espaco');
+  f.texto.split('\n').forEach((linha) => p(linha, 'final-texto'));
+  p('', 'espaco');
+}
+
+function falarComNpc(e, arg, p) {
+  const local = MUNDO[e.local];
+  if (!local) return;
+
+  // Sistema novo: local.npcs (plural)
+  if (local.npcs?.length) {
+    if (!arg) {
+      // Lista os NPCs disponíveis
+      p('Pessoas aqui:', 'titulo');
+      local.npcs.forEach((npc) => p(`  ☻ ${npc.nome}`, 'npc'));
+      p('Use "falar <nome>" para conversar.', 'sistema');
+      return;
+    }
+    const alvo = normalizar(arg);
+    const npc = local.npcs.find((n) => normalizar(n.nome).includes(alvo));
+    if (!npc) {
+      p(`Não há "${arg}" aqui.`, 'erro');
+      p('Pessoas aqui:', 'titulo');
+      local.npcs.forEach((n) => p(`  ☻ ${n.nome}`, 'npc'));
+      return;
+    }
+
+    // NPC especial: Sábio Aldric — falas dinâmicas
+    if (npc.especial === 'aldric') {
+      p(`☻ ${npc.nome}`, 'npc');
+      p('', 'espaco');
+      const falas = falasAldric(e);
+      falas.forEach((f) => p(f, 'fala'));
+      // Se completou tudo, mostra a escolha final
+      const { indice } = capituloAtual(e);
+      if (indice >= CAMPANHA.length && !e.campanha.escolhaFinalFeita) {
+        p('', 'espaco');
+        p('★ A hora da escolha chegou. Use:', 'campanha-marco');
+        p('   escolher matar  — Você quer destruir o Rei Antigo', 'sistema');
+        p('   escolher poupar — Você quer salvá-lo', 'sistema');
+        p('   escolher juntar — Você quer a coroa', 'sistema');
+      }
+      return;
+    }
+
+    // NPC normal
+    p(`☻ ${npc.nome}`, 'npc');
+    p('', 'espaco');
+    (npc.falas || []).forEach((f) => p(f, 'fala'));
+    return;
+  }
+
+  // Sistema antigo: local.npc (singular)
+  if (!local.npc) { p('Não há ninguém aqui.', 'erro'); return; }
+  p(`☻ ${local.npc.nome}`, 'npc');
+  p('', 'espaco');
+  local.npc.falas.forEach((f) => p(f, 'fala'));
+}
+
+/* ================================================================== */
 /* MAPA                                                                */
 /* ================================================================== */
 function comandoMapa(e, p) {
@@ -1800,6 +1994,7 @@ const AJUDA = [
   'conquistas · titulo <nome>',
   'diarias · reivindicar [missão|streak]',
   'entrar · avancar · sair_dungeon (no Portão Arcano)',
+  'campanha · prologo · escolher_final',
   'bestiario · diario · treinar <inimigo> · status',
   'receitas · craftar <item> · encantamentos · encantar <slot> <tipo>',
   'falar · loja · comprar <item|número> · vender <item|número>',
@@ -1821,6 +2016,11 @@ export function processar(estadoAnterior, entradaBruta) {
 
   // ⭐ Atualiza missões diárias ao entrar (sorteia novas se virou o dia)
   atualizarDiarias(e, p);
+  
+  /* ⭐ Prólogo automático no primeiro comando */
+  if (!e.campanha?.prologoVisto) {
+    comandoPrologo(e, p);
+  }
 
   /* ⭐ Bloqueia comandos fora de contexto quando está na dungeon */
   if (e.dungeon) {
@@ -2166,6 +2366,16 @@ export function processar(estadoAnterior, entradaBruta) {
     case 'sair_dungeon': case 'leave_dungeon':
       sairDungeon(e, p);
       break;
+    /* ⭐ Campanha narrativa */
+    case 'campanha': case 'campaign':
+      comandoCampanha(e, p);
+      break;
+    case 'prologo': case 'prologue':
+      comandoPrologo(e, p);
+      break;
+    case 'escolher_final': case 'final':
+      escolhaFinal(e, arg, p);
+      break;
     case 'bestiario': {
       const m = e.estatisticas.inimigosMortos || {};
       const ids = Object.keys(m);
@@ -2292,13 +2502,9 @@ export function processar(estadoAnterior, entradaBruta) {
       }
       break;
     }
-    case 'falar': {
-      if (!local.npc) { p('Ninguém.', 'erro'); break; }
-      p(`☻ ${local.npc.nome}`, 'npc');
-      p('', 'espaco');
-      local.npc.falas.forEach((f) => p(f, 'fala'));
+    case 'falar': case 'talk':
+      falarComNpc(e, arg, p);
       break;
-    }
     case 'loja': case 'shop': {
       if (!local.loja) { p('Sem loja aqui.', 'erro'); break; }
       p(`◆ ${local.loja.nome}`, 'loja-titulo');

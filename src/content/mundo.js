@@ -37,15 +37,23 @@ export const MUNDO = {
       sul: 'mercado', nordeste: 'arena', sudeste: 'vale_sol',
       noroeste: 'portao_arcano',   // ⭐ NOVO
     },
-    npc: {
-      nome: 'Anciã Mira',
-      falas: [
-        '"Bem-vindo a Pedraverde, forasteiro."',
-        '"A Floresta Sombria ao norte é perigosa."',
-        '"Ao sudeste fica o Vale do Sol — mas só os fortes chegam lá."',
-        '"Dizem que além do deserto existe um castelo amaldiçoado."',
-      ],
-    },
+    npcs: [
+      {
+        nome: 'Anciã Mira',
+        falas: [
+          '"Bem-vindo a Pedraverde, forasteiro. Faz tempo que não vejo um rosto novo."',
+          '"A Floresta Sombria ao norte anda perigosa. Lobos e goblins descem das colinas."',
+          '"Dizem que um troll tomou a Caverna Profunda. Ninguém que entrou voltou para contar."',
+          '"Além da floresta, há um pântano amaldiçoado. Aranhas gigantes vivem lá."',
+          '"Se quiser testar suas habilidades, a Arena fica a nordeste. Ringue de areia, sem risco."',
+        ],
+      },
+      {
+        nome: 'Sábio Aldric',
+        falas: [], // será preenchido dinamicamente pelo motor
+        especial: 'aldric', // marcador pro motor saber que é o narrador
+      },
+    ],
   },
 
   ferraria: {

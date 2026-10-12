@@ -2912,3 +2912,98 @@ button,
     width: 100%;
   }
 }
+
+/* ================================================================== */
+/* CAMPANHA NARRATIVA                                                  */
+/* ================================================================== */
+
+/* Prólogo */
+.linha.prologo .texto {
+  color: var(--texto);
+  font-style: italic;
+  line-height: 1.6;
+}
+
+/* Marco de capítulo completo */
+.linha['campanha-marco'] .prefixo { color: var(--amarelo); }
+.linha['campanha-marco'] .texto {
+  color: var(--amarelo);
+  font-weight: bold;
+  letter-spacing: 1px;
+  text-shadow: 0 0 10px rgba(255, 209, 102, 0.5);
+  animation: brilhar 1.5s ease;
+}
+
+/* Info da campanha */
+.linha['campanha-info'] .texto {
+  color: var(--azul);
+  font-weight: bold;
+}
+
+/* Próximo capítulo */
+.linha['campanha-proximo'] .texto {
+  color: var(--verde);
+  font-weight: bold;
+}
+
+.linha['campanha-objetivo'] .texto {
+  color: var(--amarelo);
+  font-style: italic;
+}
+
+/* Estados dos capítulos */
+.linha['campanha-feito'] .texto {
+  color: var(--verde);
+  opacity: 0.85;
+}
+
+.linha['campanha-atual'] .texto {
+  color: var(--azul);
+  font-weight: bold;
+}
+
+.linha['campanha-bloqueado'] .texto {
+  color: var(--texto-fraco);
+  opacity: 0.5;
+}
+
+/* Final — textos */
+.linha['final-neutro'] .texto {
+  color: #8fb8ff;
+  font-weight: bold;
+}
+.linha['final-bom'] .texto {
+  color: var(--verde);
+  font-weight: bold;
+}
+.linha['final-mau'] .texto {
+  color: #c792ea;
+  font-weight: bold;
+}
+.linha['final-texto'] .texto {
+  color: var(--texto);
+  font-style: italic;
+  line-height: 1.6;
+}
+
+/* Tags no header */
+.tag-campanha {
+  color: var(--amarelo);
+  font-weight: bold;
+  background: rgba(255, 209, 102, 0.12);
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 209, 102, 0.5);
+  font-size: 11px;
+}
+
+.tag-campanha-completa {
+  color: #ffd166;
+  font-weight: bold;
+  background: rgba(255, 209, 102, 0.18);
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 209, 102, 0.7);
+  font-size: 11px;
+  animation: pulsar 2s infinite;
+}
