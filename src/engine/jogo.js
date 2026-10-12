@@ -15,6 +15,11 @@ import { TALENTOS, acharTalento, NIVEIS_TALENTO } from '../content/talentos.js';
 import {
   CONQUISTAS, CATEGORIAS_CONQUISTAS, acharConquista, injetarItens,
 } from '../content/conquistas.js';
+import {
+  CLIMAS, PERIODOS, CLIMAS_POR_REGIAO,
+  calcularPeriodo, formatarHora, sortearClima, avancarHora,
+  getClima, getPeriodo, resumoAmbiente,
+} from '../content/clima.js';
 
 injetarItens(ITENS);
 
@@ -68,7 +73,7 @@ export function novoJogo(opcoes = {}) {
   const manaMax = Math.max(0, base.manaMax + bonus.manaMax);
 
   return {
-    versao: 10,
+    versao: 11,
     nome: (nome || '').trim() || 'Herói',
     raca: racaId, classe: classeId,
     nivel: 1, xp: 0, xpProx: xpProximoNivel(1),
@@ -78,6 +83,11 @@ export function novoJogo(opcoes = {}) {
     magias: [...(classe.magias || [])],
     efeitos: [],
     local: 'pedraverde',
+    // ⭐ Sistema de tempo e clima
+    hora: 12,           // começa ao meio-dia
+    dia: 1,             // dia 1
+    climaAtual: 'limpo',
+    contadorTempo: 0,   // quantos comandos desde o último avanço
     inventario: [{ id: 'pocao', qtd: 2 }, { id: 'pao', qtd: 2 }],
     equipado: { arma: null, escudo: null, elmo: null, armadura: null, botas: null, anel: null, colar: null, capa: null },
     encantamentos: {},
@@ -95,6 +105,42 @@ export function novoJogo(opcoes = {}) {
     },
     atualizadoEm: Date.now(),
   };
+}
+
+/* ================================================================== */
+/* TEMPO E CLIMA                                                       */
+/* ================================================================== */
+
+/** Avança o tempo se passaram comandos suficientes */
+function avancarTempo(e, p) {
+  e.contadorTempo = (e.contadorTempo || 0) + 1;
+  if (e.contadorTempo < 5) return;
+  e.contadorTempo = 0;
+
+  const horaAntiga = e.hora || 12;
+  e.hora = avancarHora(e.hora || 12, 1);
+
+  // Nova hora = 0 = meia-noite, avança o dia
+  if (e.hora === 0) e.dia = (e.dia || 1) + 1;
+
+  // Anuncia mudanças notáveis
+  const periodoAntigo = calcularPeriodo(horaAntiga).id;
+  const periodoNovo = calcularPeriodo(e.hora).id;
+
+  if (periodoAntigo !== periodoNovo) {
+    const per = PERIODOS[periodoNovo];
+    p(`${per.emoji} O tempo passa — ${per.nome} em Pedraverde. (${formatarHora(e.hora)})`, 'tempo-periodo');
+  }
+
+  // Chance de trocar o clima (30% por hora)
+  if (Math.random() < 0.3) {
+    const regiao = MUNDO[e.local]?.regiao || 'vila';
+    const novoClima = sortearClima(regiao);
+    if (novoClima.id !== e.climaAtual) {
+      e.climaAtual = novoClima.id;
+      p(`${novoClima.emoji} O clima mudou: ${novoClima.nome}.`, 'tempo-clima');
+    }
+  }
 }
 
 /* ================================================================== */
@@ -182,6 +228,11 @@ function normalizarEstado(e) {
   if (typeof e.manaMax !== 'number') e.manaMax = 10;
   if (!e.raca) e.raca = 'humano';
   if (!e.classe) e.classe = 'guerreiro';
+  // ⭐ Sistema de tempo (retrocompatível)
+  if (typeof e.hora !== 'number') e.hora = 12;
+  if (typeof e.dia !== 'number') e.dia = 1;
+  if (!e.climaAtual) e.climaAtual = 'limpo';
+  if (typeof e.contadorTempo !== 'number') e.contadorTempo = 0;
   if (!e.estatisticas) {
     e.estatisticas = { locaisVisitados: [e.local || 'pedraverde'], inimigosMortos: {}, mortes: 0, danoTotal: 0, danoRecebido: 0, magiasLancadas: 0, eventosVividos: 0, turnosDeCombate: 0, vitoriasArena: 0, nocauteArena: 0, itensCriados: 0, itensEncantados: 0, fugasInimigos: 0, criadoEm: Date.now() };
   }
@@ -215,11 +266,7 @@ function checarConquistas(e, p) {
       if (c.check(e)) {
         e.conquistasDesbloqueadas.push(c.id);
         novas.push(c);
-        // Aplica bônus permanentes diretos (hpMax)
-        if (c.bonus?.hpMax) {
-          e.hpMax += c.bonus.hpMax;
-          e.hp += c.bonus.hpMax;
-        }
+        if (c.bonus?.hpMax) { e.hpMax += c.bonus.hpMax; e.hp += c.bonus.hpMax; }
       }
     } catch {}
   }
@@ -345,7 +392,10 @@ function resumoEfeitos(e) {
 /* ================================================================== */
 function talvezEvento(e, local, p) {
   if (!local.inimigos?.length && !local.chefe) return;
-  if (Math.random() > 0.15) return;
+  // ⭐ Bônus de encontro por período (noite aumenta)
+  const periodo = calcularPeriodo(e.hora || 12);
+  const chanceBase = 0.15 + (periodo.encontroBonus || 0);
+  if (Math.random() > chanceBase) return;
   const ev = sortearEvento();
   ev.aplicar(e, p);
   e.estatisticas.eventosVividos += 1;
@@ -371,7 +421,22 @@ function lancarMagia(e, magiaId, p) {
   if (m.tipo === 'ataque') {
     let dano = m.dano ? m.dano + d6() : Math.round(atkTotal(e) * (m.multiplicador || 1));
     if (temTalento(e, 'foco_mago')) dano += 3;
-    if (magiaId === 'bola_fogo' && temTalento(e, 'piromante')) dano += 5;
+
+    // ⭐ Modificadores de clima
+    const clima = getClima(e.climaAtual || 'limpo');
+    let modClima = 0;
+    if (magiaId === 'bola_fogo') {
+      if (temTalento(e, 'piromante')) dano += 5;
+      modClima = clima.danoFogo;
+    } else if (magiaId === 'toque_gelido') {
+      modClima = clima.danoGelo;
+    }
+    if (modClima !== 0) {
+      dano += modClima;
+      if (modClima < 0) p(`   ${clima.emoji} ${clima.nome} enfraquece a magia (${modClima} dano).`, 'tempo-clima');
+      else p(`   ${clima.emoji} ${clima.nome} amplifica a magia (+${modClima} dano).`, 'tempo-clima');
+    }
+
     if (!m.ignoraDef) dano -= ini.def;
     dano = Math.max(1, dano);
     if (!m.semErro && Math.random() < 0.1) p('✖ A magia errou.', 'erro');
@@ -454,12 +519,21 @@ function listarArena(e, p) {
 /* Combate                                                             */
 /* ================================================================== */
 const ACOES_COMBATE = ['atacar', 'forte', 'rapido', 'defender', 'esquivar', 'focar', 'fugir'];
-const PERMITIDOS_EM_COMBATE = [...ACOES_COMBATE, 'usar', 'magia', 'magias', 'inventario', 'inv', 'i', 'status', 'ajuda', 'olhar', 'equipar', 'examinar', 'inspecionar', 'talentos', 'conquistas'];
+const PERMITIDOS_EM_COMBATE = [...ACOES_COMBATE, 'usar', 'magia', 'magias', 'inventario', 'inv', 'i', 'status', 'ajuda', 'olhar', 'equipar', 'examinar', 'inspecionar', 'talentos', 'conquistas', 'clima', 'hora'];
 
 function iniciarCombate(e, id, p) {
   const b = INIMIGOS[id];
+  const periodo = calcularPeriodo(e.hora || 12);
+  const clima = getClima(e.climaAtual || 'limpo');
+
+  // ⭐ Ajuste de inimigo por período + clima
+  const atkBonus = (periodo.atkInimigo || 0) + (clima.inimigoAtkBonus || 0);
+  const hpBonusPct = (periodo.hpInimigo || 0) + (clima.vidaExtra || 0);
+  const hpFinal = Math.round(b.hp * (1 + hpBonusPct));
+
   e.emCombate = {
-    id, nome: b.nome, hp: b.hp, hpMax: b.hp, atk: b.atk, def: b.def,
+    id, nome: b.nome, hp: hpFinal, hpMax: hpFinal,
+    atk: b.atk + atkBonus, def: b.def,
     chefe: !!b.chefe, turno: 1,
     defesaAtiva: false, esquivaAtiva: false, criticoCarregado: false,
     inimigoDefendendo: false, inimigoEsquivando: false, inimigoFocando: false,
@@ -470,12 +544,26 @@ function iniciarCombate(e, id, p) {
   const tipo = b.chefe ? 'combate-chefe' : 'combate-inicio';
   p(`⚔ ${b.chefe ? 'CHEFE! ' : ''}Um ${b.nome} surge!`, tipo);
   if (b.desc) p(b.desc, 'sistema');
+
+  // ⭐ Avisa se período/clima afetou
+  if (atkBonus > 0 || hpBonusPct > 0) {
+    const mods = [];
+    if (periodo.atkInimigo) mods.push(`+${periodo.atkInimigo} ATK (${periodo.nome})`);
+    if (clima.inimigoAtkBonus) mods.push(`+${clima.inimigoAtkBonus} ATK (${clima.nome})`);
+    if (periodo.hpInimigo) mods.push(`+${Math.round(periodo.hpInimigo * 100)}% HP (${periodo.nome})`);
+    if (clima.vidaExtra) mods.push(`+${Math.round(clima.vidaExtra * 100)}% HP (${clima.nome})`);
+    if (mods.length) p(`   ${periodo.emoji}${clima.emoji} Condições: ${mods.join(', ')}`, 'tempo-aviso');
+  }
+
   mostrarStatusCombate(e, p);
 }
 
 function mostrarStatusCombate(e, p) {
   const ini = e.emCombate; if (!ini) return;
-  p(`${ini.arena ? '⚔ TREINO — ' : ''}Turno ${ini.turno}`, 'combate-turno');
+  const clima = getClima(e.climaAtual || 'limpo');
+  const periodo = calcularPeriodo(e.hora || 12);
+
+  p(`${ini.arena ? '⚔ TREINO — ' : ''}Turno ${ini.turno} · ${clima.emoji} ${clima.nome} · ${periodo.emoji} ${periodo.nome}`, 'combate-turno');
   p(`  ${ini.nome}: [${barra(ini.hp, ini.hpMax)}] ${Math.max(0, ini.hp)}/${ini.hpMax}`, 'combate');
   p(`  Você:        [${barra(e.hp, e.hpMax)}] ${e.hp}/${e.hpMax}`, 'combate');
   if (e.manaMax > 0) p(`  Mana:        [${barra(e.mana, e.manaMax)}] ${e.mana}/${e.manaMax}`, 'mana');
@@ -501,14 +589,29 @@ function mostrarStatusCombate(e, p) {
 }
 
 function ataqueJogador(e, ini, acao) {
+  const clima = getClima(e.climaAtual || 'limpo');
   let dano = atkTotal(e) + d6() - ini.def;
   let errou = false, critico = false;
+
+  // ⭐ Nevoeiro: chance de errar
+  if (clima.chanceErrar > 0 && Math.random() < clima.chanceErrar) {
+    return { dano: 0, errou: true, critico: false, motivo: 'nevoeiro' };
+  }
+
   if (acao === 'forte') {
     if (Math.random() < 0.3) errou = true;
     else dano = Math.round(dano * 1.5);
   } else if (acao === 'rapido') {
     dano = Math.max(1, dano - 2);
   }
+
+  // ⭐ Modificador de clima para encantamento
+  const encArma = e.encantamentos?.arma;
+  let modClima = 0;
+  if (encArma === 'fogo') modClima = clima.danoFogo;
+  else if (encArma === 'gelo') modClima = clima.danoGelo;
+  dano += modClima;
+
   if (temTalento(e, 'perfurante')) dano += 3;
   if (temTalento(e, 'furia') && e.hp / e.hpMax < 0.3) dano = Math.round(dano * 1.5);
   if (temTalento(e, 'mestre_sombras') && e.hp >= e.hpMax) dano += 6;
@@ -516,10 +619,21 @@ function ataqueJogador(e, ini, acao) {
     errou = false;
     dano = Math.round((atkTotal(e) + d6() - ini.def) * 1.5);
   }
-  if (!errou && e.emCombate.criticoCarregado) { dano *= temTalento(e, 'assassino') ? 3 : 2; critico = true; }
+
+  // ⭐ Tempestade: +10% chance de crítico
+  let chanceCritExtra = clima.critBonus || 0;
+  if (!errou && e.emCombate.criticoCarregado) {
+    dano *= temTalento(e, 'assassino') ? 3 : 2;
+    critico = true;
+  } else if (!errou && chanceCritExtra > 0 && Math.random() < chanceCritExtra) {
+    dano = Math.round(dano * 1.5);
+    critico = true;
+  }
+
   if (!errou && e.emCombate.inimigoDefendendo) dano = Math.max(1, Math.round(dano * 0.4));
   if (!errou && e.emCombate.inimigoEsquivando && Math.random() < 0.5) errou = true;
-  return { dano: Math.max(1, dano), errou, critico };
+
+  return { dano: Math.max(1, dano), errou, critico, modClima };
 }
 
 function escolherAcaoInimigo(e, ini) {
@@ -667,7 +781,6 @@ function turnoInimigo(e, p) {
   }
   if (e.hp <= 0) { morrer(e, p); return; }
 
-  // Marca flag para conquista "sobreviveu com 1 HP"
   if (e.hp === 1) e.flags.teve_1hp = true;
 
   e.emCombate.defesaAtiva = false; e.emCombate.esquivaAtiva = false;
@@ -699,12 +812,14 @@ function processarCombate(e, cmd, arg, p) {
 
   const golpeDuplo = temTalento(e, 'golpe_duplo') && Math.random() < (temTalento(e, 'velocidade') ? 0.5 : 0.25);
   const vezes = golpeDuplo ? 2 : 1;
-  let totalDano = 0; let algumCritico = false;
+  let totalDano = 0; let algumCritico = false; let errouNevoeiro = false;
 
   for (let v = 0; v < vezes && ini.hp > 0; v++) {
-    const { dano, errou, critico } = ataqueJogador(e, ini, cmd);
-    if (errou) { p(`✖ Você errou${v > 0 ? ' o segundo golpe' : ''}!`, 'erro'); }
-    else {
+    const { dano, errou, critico, motivo } = ataqueJogador(e, ini, cmd);
+    if (errou) {
+      if (motivo === 'nevoeiro') { errouNevoeiro = true; break; }
+      p(`✖ Você errou${v > 0 ? ' o segundo golpe' : ''}!`, 'erro');
+    } else {
       ini.hp -= dano; e.estatisticas.danoTotal += dano;
       totalDano += dano;
       if (critico) algumCritico = true;
@@ -717,7 +832,9 @@ function processarCombate(e, cmd, arg, p) {
     }
   }
 
-  if (totalDano > 0) {
+  if (errouNevoeiro) {
+    p(`🌫 O nevoeiro te atrapalha — você erra o ataque!`, 'tempo-aviso');
+  } else if (totalDano > 0) {
     const ex = []; if (algumCritico) ex.push('CRÍTICO'); if (cmd === 'forte') ex.push('forte'); if (cmd === 'rapido') ex.push('rápido'); if (golpeDuplo) ex.push('GOLPE DUPLO');
     p(`⚔ Você${ex.length ? ' (' + ex.join(', ') + ')' : ''} causa ${totalDano}.`, algumCritico ? 'dano-critico' : 'dano-causado');
   }
@@ -943,21 +1060,15 @@ function listarConquistas(e, p) {
   const total = CONQUISTAS.length;
   const feitas = e.conquistasDesbloqueadas.length;
   const pct = Math.round((feitas / total) * 100);
-
   p('◆ Conquistas', 'titulo');
   p(`Progresso: ${feitas}/${total} (${pct}%)`, 'conquista-info');
-
-  if (e.titulo) {
-    p(`Título atual: "${e.titulo}"`, 'talento-ok');
-  }
+  if (e.titulo) p(`Título atual: "${e.titulo}"`, 'talento-ok');
   p('', 'espaco');
-
   const porCat = {};
   for (const c of CONQUISTAS) {
     if (!porCat[c.cat]) porCat[c.cat] = [];
     porCat[c.cat].push(c);
   }
-
   for (const catId of Object.keys(CATEGORIAS_CONQUISTAS)) {
     const cat = CATEGORIAS_CONQUISTAS[catId];
     const lista = porCat[catId] || [];
@@ -976,8 +1087,6 @@ function listarConquistas(e, p) {
     }
     p('', 'separador');
   }
-
-  // Lista de títulos disponíveis
   const titulos = CONQUISTAS.filter((c) => c.titulo && e.conquistasDesbloqueadas.includes(c.id)).map((c) => c.titulo);
   if (titulos.length) {
     p('★ Títulos disponíveis:', 'titulo');
@@ -986,15 +1095,10 @@ function listarConquistas(e, p) {
     p('Use "titulo nenhum" para remover o título.', 'sistema');
   }
 }
-
 function escolherTitulo(e, arg, p) {
   const alvo = normalizar(arg);
   if (!alvo) { p('Uso: "titulo <nome>" ou "titulo nenhum".', 'erro'); p('Use "conquistas" para ver os títulos disponíveis.', 'sistema'); return; }
-  if (alvo === 'nenhum' || alvo === 'none' || alvo === 'remover' || alvo === 'limpar') {
-    e.titulo = null;
-    p('Título removido.', 'sistema');
-    return;
-  }
+  if (alvo === 'nenhum' || alvo === 'none' || alvo === 'remover' || alvo === 'limpar') { e.titulo = null; p('Título removido.', 'sistema'); return; }
   const titulos = CONQUISTAS.filter((c) => c.titulo && e.conquistasDesbloqueadas.includes(c.id)).map((c) => c.titulo);
   const encontrado = titulos.find((t) => normalizar(t).includes(alvo));
   if (!encontrado) { p(`Você não tem o título "${arg}".`, 'erro'); p('Use "conquistas" para ver os disponíveis.', 'sistema'); return; }
@@ -1003,7 +1107,47 @@ function escolherTitulo(e, arg, p) {
 }
 
 /* ================================================================== */
-/* Mapa                                                                */
+/* CLIMA E HORA — comando                                              */
+/* ================================================================== */
+function comandoClima(e, p) {
+  const clima = getClima(e.climaAtual || 'limpo');
+  const periodo = calcularPeriodo(e.hora || 12);
+  p('◆ Tempo e clima', 'titulo');
+  p(`${clima.emoji} Clima: ${clima.nome}`, 'tempo-clima');
+  p(`   ${clima.desc}`, 'item-desc');
+  p('', 'espaco');
+  p(`${periodo.emoji} Período: ${periodo.nome}`, 'tempo-periodo');
+  p(`   ${periodo.desc}`, 'item-desc');
+  p('', 'espaco');
+  p(`🕐 Hora atual: ${formatarHora(e.hora || 12)} · Dia ${e.dia || 1}`, 'tempo-info');
+
+  // Efeitos ativos
+  const efeitos = [];
+  if (clima.danoFogo) efeitos.push(`Magias de fogo: ${clima.danoFogo > 0 ? '+' : ''}${clima.danoFogo} dano`);
+  if (clima.danoGelo) efeitos.push(`Magias de gelo: ${clima.danoGelo > 0 ? '+' : ''}${clima.danoGelo} dano`);
+  if (clima.critBonus) efeitos.push(`Chance de crítico: ${clima.critBonus > 0 ? '+' : ''}${Math.round(clima.critBonus * 100)}%`);
+  if (clima.chanceErrar) efeitos.push(`Chance de errar: +${Math.round(clima.chanceErrar * 100)}%`);
+  if (clima.inimigoAtkBonus) efeitos.push(`ATK dos inimigos: +${clima.inimigoAtkBonus}`);
+  if (clima.vidaExtra) efeitos.push(`Vida extra dos inimigos: +${Math.round(clima.vidaExtra * 100)}%`);
+  if (periodo.encontroBonus) efeitos.push(`Encontros: +${Math.round(periodo.encontroBonus * 100)}%`);
+  if (periodo.atkInimigo) efeitos.push(`ATK dos inimigos: +${periodo.atkInimigo}`);
+  if (periodo.hpInimigo) efeitos.push(`Vida extra dos inimigos: +${Math.round(periodo.hpInimigo * 100)}%`);
+
+  if (efeitos.length) {
+    p('', 'espaco');
+    p('Efeitos ativos:', 'titulo');
+    efeitos.forEach((e) => p(`  · ${e}`, 'tempo-efeito'));
+  }
+}
+
+function comandoHora(e, p) {
+  const clima = getClima(e.climaAtual || 'limpo');
+  const periodo = calcularPeriodo(e.hora || 12);
+  p(`${clima.emoji} ${clima.nome} · ${periodo.emoji} ${periodo.nome} · 🕐 ${formatarHora(e.hora || 12)} · Dia ${e.dia || 1}`, 'tempo-info');
+}
+
+/* ================================================================== */
+/* MAPA                                                                */
 /* ================================================================== */
 function comandoMapa(e, p) {
   const localAtual = MUNDO[e.local];
@@ -1059,12 +1203,24 @@ function comandoMapa(e, p) {
 function aoEntrar(e, p) {
   const local = MUNDO[e.local];
   registrarLocal(e, e.local);
+
+  // ⭐ Sorteia clima ao entrar em local novo
+  const regiao = local.regiao || 'vila';
+  if (!e.climaAtual || e.climaAtual === 'limpo') {
+    e.climaAtual = sortearClima(regiao).id;
+  }
+
+  const clima = getClima(e.climaAtual);
+  const periodo = calcularPeriodo(e.hora || 12);
+
   p(`◆ ${local.nome}`, local.arena ? 'arena' : 'local');
   p(local.desc);
   if (local.variacoes?.length) {
     const v = local.variacoes[Math.floor(Math.random() * local.variacoes.length)];
     if (v) p(v, 'atmosfera');
   }
+  p(`${clima.emoji} ${clima.nome} · ${periodo.emoji} ${periodo.nome} · 🕐 ${formatarHora(e.hora || 12)}`, 'tempo-info');
+
   const chao = (local.itensNoChao || []).filter((id) => !e.flags[`chao_${e.local}_${id}`]);
   if (chao.length) {
     p('', 'espaco');
@@ -1090,7 +1246,8 @@ function aoEntrar(e, p) {
   talvezEvento(e, local, p);
   if (e.hp <= 0) { morrer(e, p); return; }
   if (local.inimigos?.length && !e.emCombate) {
-    const chance = local.chanceEncontro ?? 0.6;
+    // ⭐ Chance de encontro considera período
+    const chance = (local.chanceEncontro ?? 0.6) + (periodo.encontroBonus || 0);
     if (Math.random() < chance) {
       const id = local.inimigos[Math.floor(Math.random() * local.inimigos.length)];
       iniciarCombate(e, id, p);
@@ -1136,7 +1293,7 @@ function examinarItem(e, arg, p) {
 /* Comandos                                                            */
 /* ================================================================== */
 const AJUDA = [
-  'ajuda · olhar · ir <direção> · mapa',
+  'ajuda · olhar · ir <direção> · mapa · clima · hora',
   'pegar · inventario · examinar <item> · equipar · desequipar',
   'usar <item> · descansar',
   'magias · magia <nome> · efeitos',
@@ -1167,6 +1324,7 @@ export function processar(estadoAnterior, entradaBruta) {
   }
   if (e.emCombate && (ACOES_COMBATE.includes(cmd) || cmd === 'magia')) {
     processarCombate(e, cmd, arg, p);
+    avancarTempo(e, p);
     e.atualizadoEm = Date.now();
     return { estado: e, linhas };
   }
@@ -1181,6 +1339,12 @@ export function processar(estadoAnterior, entradaBruta) {
     case 'mapa': case 'map': case 'm':
       comandoMapa(e, p);
       break;
+    case 'clima': case 'tempo': case 'weather':
+      comandoClima(e, p);
+      break;
+    case 'hora': case 'time':
+      comandoHora(e, p);
+      break;
     case 'olhar': case 'l':
       if (e.emCombate) { const ini = e.emCombate; p(`${ini.nome} — HP ${Math.max(0, ini.hp)}/${ini.hpMax}`, 'combate'); break; }
       aoEntrar(e, p);
@@ -1194,7 +1358,10 @@ export function processar(estadoAnterior, entradaBruta) {
       const nv = dl.nivelMinimo || 1;
       if (e.nivel < nv) { p(`🔒 ${dl.nome} exige nível ${nv}+.`, 'erro'); break; }
       e.local = dest;
+      // ⭐ Sorteia clima da nova região
+      e.climaAtual = sortearClima(dl.regiao || 'vila').id;
       aoEntrar(e, p);
+      avancarTempo(e, p);
       break;
     }
     case 'pegar': {
@@ -1273,6 +1440,8 @@ export function processar(estadoAnterior, entradaBruta) {
       const h = e.hp, m = e.mana;
       e.hp = e.hpMax; e.mana = e.manaMax; e.efeitos = [];
       p(`Descansou. HP ${h}→${e.hp} | MP ${m}→${e.mana}`, 'cura');
+      // Descansar avança 3 horas
+      for (let i = 0; i < 3; i++) avancarTempo(e, () => {});
       break;
     }
     case 'magias': case 'grimorio': {
@@ -1331,8 +1500,11 @@ export function processar(estadoAnterior, entradaBruta) {
       const r = RACAS[e.raca] || RACAS.humano;
       const c = CLASSES[e.classe] || CLASSES.guerreiro;
       const s = e.estatisticas;
+      const clima = getClima(e.climaAtual || 'limpo');
+      const periodo = calcularPeriodo(e.hora || 12);
       p(`◆ Diário de ${e.nome}`, 'titulo');
       p(`${r.emoji} ${r.nome} · ${c.emoji} ${c.nome} · Nv ${e.nivel}`, 'sistema');
+      p(`${clima.emoji} ${clima.nome} · ${periodo.emoji} ${periodo.nome} · 🕐 ${formatarHora(e.hora || 12)}`, 'tempo-info');
       p('', 'espaco');
       p(`Locais: ${s.locaisVisitados.length}/${Object.keys(MUNDO).length}`, 'item-info');
       p(`Inimigos: ${Object.values(s.inimigosMortos || {}).reduce((a, b) => a + b, 0)}`, 'item-info');
@@ -1342,6 +1514,7 @@ export function processar(estadoAnterior, entradaBruta) {
       p(`Talentos: ${e.talentos.length} · Pontos: ${e.pontosTalento}`, 'item-info');
       p(`Conquistas: ${e.conquistasDesbloqueadas.length}/${CONQUISTAS.length}`, 'conquista-info');
       p(`Inimigos fugiram: ${s.fugasInimigos}`, 'item-info');
+      p(`Dia do jogo: ${e.dia || 1}`, 'item-info');
       break;
     }
     case 'treinar': case 'lutar': {
@@ -1404,8 +1577,11 @@ export function processar(estadoAnterior, entradaBruta) {
     case 'status': {
       const r = RACAS[e.raca] || RACAS.humano;
       const c = CLASSES[e.classe] || CLASSES.guerreiro;
+      const clima = getClima(e.climaAtual || 'limpo');
+      const periodo = calcularPeriodo(e.hora || 12);
       p(`◆ ${e.nome}${e.titulo ? ` — "${e.titulo}"` : ''}`, 'local');
       p(`${r.emoji} ${r.nome} · ${c.emoji} ${c.nome} · Nv ${e.nivel}`, 'sistema');
+      p(`${clima.emoji} ${clima.nome} · ${periodo.emoji} ${periodo.nome} · 🕐 ${formatarHora(e.hora || 12)}`, 'tempo-info');
       p('', 'espaco');
       p(`XP ${e.xp}/${e.xpProx}`, 'stats');
       p(`HP ${e.hp}/${e.hpMax}`, 'hp-info');
@@ -1564,6 +1740,9 @@ export function processar(estadoAnterior, entradaBruta) {
     default:
       p(`Comando desconhecido: "${partes[0]}".`, 'erro');
   }
+
+  // ⭐ Avança o tempo a cada comando significativo
+  avancarTempo(e, p);
 
   e.atualizadoEm = Date.now();
   return { estado: e, linhas };

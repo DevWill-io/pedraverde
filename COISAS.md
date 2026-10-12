@@ -1,6 +1,4 @@
-Perfeito. Aqui está o **documento de handoff completo** — salva como `PROJETO.md` na raiz. Contém tudo do projeto atual + roadmap de melhorias. Se você trocar de chat, é só colar esse arquivo inteiro no começo e qualquer assistente vai entender o estado exato do projeto.
-
----
+Aqui está o **`PROJETO.md`** atualizado. Removi do roadmap o que já foi implementado (Save Export/Import, Talentos, Conquistas) e movi essas features para a seção de **Funcionalidades Implementadas**. Também atualizei métricas, comandos, limites e o TL;DR.
 
 ```markdown
 # ⚔ PEDRAVERDE — Documento de Handoff Completo
@@ -19,13 +17,13 @@ Perfeito. Aqui está o **documento de handoff completo** — salva como `PROJETO
 **Estilo:** Terminal retrô com tema escuro, fonte monoespaçada, cores por tipo de
 mensagem
 **URL:** https://pedraverde.vercel.app
-**Status:** Publicado e funcional. Base sólida, com várias features implementadas
-e outras planejadas.
+**Status:** Publicado e funcional. Base sólida com **17 blocos implementados**,
+com features de longo prazo em desenvolvimento.
 
 ### Ideia central
 O jogador digita comandos em um input e recebe respostas em um log rolável. Toda
-a interação é por texto — combate, navegação, crafting, magias, etc. O tom é de
-fantasia medieval, começando na vila de Pedraverde.
+a interação é por texto — combate, navegação, crafting, magias, talentos,
+conquistas, etc. O tom é de fantasia medieval, começando na vila de Pedraverde.
 
 ---
 
@@ -95,15 +93,17 @@ VITE_FIREBASE_APP_ID=
 │   │   ├── arena.js               # Arena de treino
 │   │   ├── receitas.js            # 28 receitas de crafting
 │   │   ├── encantamentos.js       # 5 encantamentos elementais
+│   │   ├── talentos.js            # 40 talentos em 5 classes
+│   │   ├── conquistas.js          # 45 conquistas + 20 títulos
 │   │   └── i18n.js                # Traduções PT/EN + aliases de comandos
 │   │
 │   ├── engine/
-│   │   └── jogo.js                # Motor do jogo (processa comandos, combate, etc.)
+│   │   └── jogo.js                # Motor do jogo (comandos, combate, IA)
 │   │
 │   ├── components/
 │   │   ├── Login.jsx              # Tela de login/cadastro
-│   │   ├── Slots.jsx              # Escolha de save (3 slots)
-│   │   ├── Tutorial.jsx           # Tutorial completo (9 seções)
+│   │   ├── Slots.jsx              # Escolha de save + export/import
+│   │   ├── Tutorial.jsx           # Tutorial completo (11 seções)
 │   │   ├── Config.jsx             # Painel de configurações (modal)
 │   │   ├── Chat.jsx               # Chat global (modal)
 │   │   └── Ranking.jsx            # Ranking global (modal)
@@ -111,10 +111,10 @@ VITE_FIREBASE_APP_ID=
 │   ├── App.jsx                    # Componente principal + TelaCriacao + TelaJogo
 │   ├── main.jsx                   # Entrada do React
 │   ├── firebase.js                # Inicialização do Firebase
-│   ├── saves.js                   # Sistema de save (local + nuvem)
+│   ├── saves.js                   # Sistema de save + export/import
 │   ├── audio.js                   # Sons + música (Web Audio API)
 │   ├── chat.js                    # Chat e ranking no Firestore
-│   ├── pwa.js                     # Registro do Service Worker + prompt de instalação
+│   ├── pwa.js                     # Registro do Service Worker
 │   └── styles.css                 # Estilos globais
 │
 ├── index.html                     # HTML base com meta tags SEO
@@ -144,11 +144,19 @@ VITE_FIREBASE_APP_ID=
 - ✅ Save automático ao clicar em "Salvar" + ao trocar de local
 - ✅ Cada slot mostra: emoji raça/classe, nome, nível, local, HP, data
 
-### 4.3 Interface
-- ✅ Barra de status: nome, classe, nível, ATK, DEF, moedas, local
+### 4.3 Save Export / Import ⭐ NOVO
+- ✅ Botão **↓ exportar** em cada slot com save
+- ✅ Botão **↑ importar** em cada slot (inclusive vazios)
+- ✅ Validação de arquivo `.json` (JSON válido, campos esperados, máx 2MB)
+- ✅ Nome do arquivo inclui nome do personagem, nível e slot
+- ✅ Confirmação antes de sobrescrever
+- **Útil para:** backup manual, migração entre dispositivos, restaurar save corrompido
+
+### 4.4 Interface
+- ✅ Barra de status: nome + título, classe, nível, ATK, DEF, moedas, local
 - ✅ Barras de HP, Mana, XP com cores dinâmicas (verde/amarelo/vermelho)
 - ✅ Log rolável com limite de 25 linhas visíveis (`MAX_LOG = 25`)
-- ✅ Cores e prefixos por tipo de mensagem (› ◆ ✓ ✗ ⚔ ✦ 💥 ☠ etc.)
+- ✅ Cores e prefixos por tipo de mensagem (› ◆ ✓ ✗ ⚔ ✦ 💥 ☠ ★ 🏆 etc.)
 - ✅ Divisórias tracejadas entre itens/quests (`separador` e `espaco`)
 - ✅ Input na parte inferior com histórico (`↑`/`↓`)
 - ✅ Chips de atalho abaixo do log (variam por contexto: normal / combate / arena)
@@ -156,8 +164,10 @@ VITE_FIREBASE_APP_ID=
 - ✅ Comando `limpar` / `clear` apaga o log
 - ✅ Nenhuma seleção de texto indesejada (sem barra `|` no desktop, sem fundo azul no mobile)
 - ✅ Feedback visual de clique (scale + mudança de fundo)
+- ✅ Badge `★` pulsante no header quando há ponto de talento
+- ✅ Título equipado ao lado do nome
 
-### 4.4 Comandos do Jogo
+### 4.5 Comandos do Jogo
 **Exploração:**
 - `ajuda` / `help` / `?`
 - `olhar` / `look` / `l`
@@ -168,7 +178,7 @@ VITE_FIREBASE_APP_ID=
 
 **Itens e equipamento:**
 - `inventario` / `inventory` / `inv` / `i` (com descrição)
-- `examinar <item>` / `inspecionar` / `ver` / `verificar`
+- `examinar <item>` / `inspecionar` / `ver` / `verificar` ⭐ NOVO
 - `equipar <item>` / `equip`
 - `desequipar <slot>` / `remover`
 - `usar <item>` / `use`
@@ -178,6 +188,14 @@ VITE_FIREBASE_APP_ID=
 - `magias` / `grimorio` / `spells`
 - `magia <nome>` / `spell`
 - `efeitos` / `buffs`
+
+**Talentos:** ⭐ NOVO
+- `talentos` / `talent`
+- `escolher <nível> <1|2>` / `aprender`
+
+**Conquistas:** ⭐ NOVO
+- `conquistas` / `achievements` / `conquista`
+- `titulo <nome>` / `title`
 
 **Progresso:**
 - `bestiario` / `bestiary`
@@ -217,20 +235,52 @@ VITE_FIREBASE_APP_ID=
 - `magia <nome>` / `spell`
 - `usar <item>` / `use`
 
-### 4.5 Combate Tático
+### 4.6 Combate Tático
 - ✅ **7 ações por turno** com prós e contras
 - ✅ Dano aleatório: `max(1, ATK + d6 − DEF)`
 - ✅ **Fugir** tem 50% de chance (chefes não permitem)
 - ✅ **Combo tático:** defender → focar → forte = dano crítico devastador
-- ✅ **Inimigos inteligentes:**
-  - Defendem quando HP < 30%
-  - Ficam agressivos quando você está com HP baixo
-  - Chefes ficam **ENFURECIDOS** abaixo de 50% HP (+2 ATK)
-  - Troll faz **Golpe Terra** (dano dobrado) a cada 3 turnos
 - ✅ **Status effects em combate** (veneno, sangramento, queimadura, atordoar, congelar)
 - ✅ **Encantamentos elementais** disparam ao acertar golpe
 
-### 4.6 Magias e Mana
+### 4.7 IA Reativa de Inimigos ⭐ NOVO
+- ✅ **Reage ao que o jogador fez** no turno anterior:
+  - Jogador `focar` → **65% de chance de defender**
+  - Jogador `defender` → **45% de chance de focar**
+  - Jogador `esquivar` → **40% de chance de atacar**
+  - Jogador `usar`/`magia` → **55% de chance de atacar**
+- ✅ **5 arquétipos:** agressivo, defensivo, tático, bestial, mágico
+- ✅ **Chefes com padrões fixos** (rotação de 3-5 ações):
+  - **Troll:** `atacar → atacar → GOLPE TERRA`
+  - **Bruxa:** `MAGIA SOMBRIA → atacar → CURA SOMBRIA → atacar`
+  - **Dragão Ancião:** `atacar → SOPRO DE FOGO → atacar → RUGIDO`
+  - **Múmia:** `MALDIÇÃO → atacar → atacar → RUGIDO`
+  - **Rei Antigo:** rotação complexa de 5 ações
+- ✅ **Novas ações de chefe:** golpe_terra, sopro_fogo, magia_sombria, rugido, maldicao, cura_sombria
+- ✅ **Inimigos fogem** com HP < 20% (35% de chance) — jogador ganha 30% do XP
+- ✅ Chefes **ENFURECEM** abaixo de 50% HP (+2 ATK)
+
+### 4.8 Árvore de Talentos ⭐ NOVO
+- ✅ **40 talentos** em 5 classes × 4 níveis (5, 10, 15, 20)
+- ✅ Ao subir de nível nos marcos, ganha **+1 ponto de talento**
+- ✅ Cada nível oferece **2 talentos** — escolhe 1
+- ✅ **Guerreiro:** Fúria, Resistência, Golpe Duplo, Segunda Chance, Berserker, Guardião, Campeão, Imortal
+- ✅ **Mago:** Metamagia, Foco Arcano, Mestre Arcano, Regeneração Mágica, Piromante, Criomante, Arquimago, Sábio
+- ✅ **Ladino:** Furtividade, Assassino, Veneno Aprimorado, Velocidade, Mestre das Sombras, Evasão, Sombra Mortal, Fantasma
+- ✅ **Clérigo:** Fé, Julgamento, Bênção Duradoura, Aura Sagrada, Sacerdote, Curandeiro, Santo, Inquisidor
+- ✅ **Arqueiro:** Tiro Rápido, Mira Letal, Flecha Perfurante, Tiro Certeiro, Caçador, Atirador de Elite, Mestre Arqueiro, Olho de Águia
+- ✅ Talentos **mudam o comportamento em combate**, não só stats
+- ✅ Badge `★` pulsante no header + chip `★ talentos` quando disponível
+
+### 4.9 Conquistas e Títulos ⭐ NOVO
+- ✅ **45 conquistas** em 7 categorias: progressão, combate, chefes, exploração, itens, economia, eventos
+- ✅ Cada conquista dá **bônus permanentes** (ATK, DEF, HP, MP)
+- ✅ **20 títulos** para equipar (ex: "Matador de Dragões", "Lenda", "Imortal", "Fênix")
+- ✅ Título aparece ao lado do nome no header
+- ✅ Toast de notificação ao desbloquear
+- ✅ Comandos `conquistas` e `titulo <nome>`
+
+### 4.10 Magias e Mana
 - ✅ Sistema de **Mana (MP)** com barra visual
 - ✅ **9 magias** divididas em ataque/suporte
 - ✅ Magias ignoram DEF (Bola de Fogo, Ataque Furtivo, Tiro Certeiro)
@@ -238,14 +288,14 @@ VITE_FIREBASE_APP_ID=
 - ✅ Cura (Cura), Buff (Escudo Mágico, Bênção)
 - ✅ Recurso via `descansar`, `elixir_mana` ou level up
 
-### 4.7 Criação de Personagem
+### 4.11 Criação de Personagem
 - ✅ **5 raças:** Humano, Elfo, Anão, Orc, Halfling
 - ✅ **5 classes:** Guerreiro, Mago, Ladino, Clérigo, Arqueiro
 - ✅ Cada combinação dá stats diferentes
 - ✅ Preview em tempo real
 - ✅ Magias iniciais por classe
 
-### 4.8 Mundo (9 regiões, 35+ locais)
+### 4.12 Mundo (9 regiões, 35+ locais)
 - 🏘 **Coração de Pedraverde** (Nv 1+) — vila, ferraria, alquimista, mercado, arena
 - 🌲 **Floresta Sombria** (Nv 3+) — floresta, caverna (Troll), ruínas antigas (Ogro)
 - ⛰ **Colinas Bandidas** (Nv 3+) — colina, fortaleza (Rei Bandido)
@@ -258,7 +308,7 @@ VITE_FIREBASE_APP_ID=
 
 **Bloqueio por nível:** todas as regiões avançadas exigem nível mínimo.
 
-### 4.9 Inimigos (23 + 12 chefes)
+### 4.13 Inimigos (23 + 12 chefes)
 - **Nível baixo:** Rato, Lobo, Goblin
 - **Nível médio:** Aranha, Esqueleto, Bandido
 - **Nível alto:** Cultista, Escorpião, Abutre, Saqueador, Serpente, Pirata, Lobo Glacial, Golem de Gelo, Guarda Real, Cavaleiro Negro, Mago Negro
@@ -266,7 +316,7 @@ VITE_FIREBASE_APP_ID=
 
 **Balanceamento recente:** todos os inimigos foram reforçados em ~75-100% de HP e ~35-50% de ATK.
 
-### 4.10 Itens (~167 em 11 categorias)
+### 4.14 Itens (~167 em 11 categorias)
 - **Consumíveis:** comidas, poções, pergaminhos
 - **Armas:** adagas, espadas, machados, martelos, lanças, cajados, arcos, diversas
 - **Escudos, elmos, armaduras, botas, anéis, colares, capas**
@@ -275,7 +325,7 @@ VITE_FIREBASE_APP_ID=
 
 **Raridades:** comum, incomum, raro, épico, lendário, **mítico** (novo)
 
-### 4.11 Crafting e Encantamento
+### 4.15 Crafting e Encantamento
 - ✅ **28 receitas** (ferraria, alquimia, cozinha)
 - ✅ Precisa de materiais + moedas + nível mínimo
 - ✅ **5 encantamentos elementais:** fogo, gelo, veneno, raio, sagrado
@@ -283,72 +333,72 @@ VITE_FIREBASE_APP_ID=
 - ✅ Efeito dispara ao atacar (chance variável)
 - ✅ Só 1 encantamento por peça de equipamento
 
-### 4.12 Quests
+### 4.16 Quests
 - ✅ **9 quests** distribuídas pelo mundo
 - ✅ Progresso rastreado automaticamente
 - ✅ Recompensa dada na hora ao completar
 - ✅ Comando `quests` mostra descrição + recompensa + "para aceitar: aceitar X" **antes de aceitar**
 
-### 4.13 Sistema de Eventos
+### 4.17 Sistema de Eventos
 - ✅ **12 eventos aleatórios** ao viajar (15% de chance)
 - ✅ Bons (moedas, poções, fontes), ruins (armadilhas, ladrões, veneno) e neutros
 
-### 4.14 Efeitos (Status)
+### 4.18 Efeitos (Status)
 - ✅ 7 efeitos: veneno, queimadura, sangramento, regeneração, força, fraqueza, lentidão
 - ✅ Inimigos aplicam efeitos (aranha envenena, esqueleto sangra)
 - ✅ Antídoto limpa efeitos de dano contínuo
 
-### 4.15 Arena de Treino
+### 4.19 Arena de Treino
 - ✅ Local em Pedraverde (nordeste)
 - ✅ Luta contra inimigos fracos sem risco
 - ✅ XP reduzido (50%), sem loot
 - ✅ Nocaute em vez de morte
 
-### 4.16 Bestiário
+### 4.20 Bestiário
 - ✅ Comando `bestiario` mostra todos inimigos derrotados
 - ✅ Ordenado por quantidade
 - ✅ Mostra HP, ATK, DEF, XP
 
-### 4.17 Diário
+### 4.21 Diário
 - ✅ Comando `diario` com estatísticas completas
-- ✅ Locais visitados, inimigos mortos, mortes, arena, dano, magias, itens criados, itens encantados
+- ✅ Locais visitados, inimigos mortos, mortes, arena, dano, magias, itens criados, itens encantados, talentos, conquistas, fugas de inimigos
 
-### 4.18 Tutorial
-- ✅ Tela completa com **9 seções**
-- ✅ Boas-vindas, Criação, Comandos, Combate, Magias, Crafting, Mapa, Progressão, Dicas
+### 4.22 Tutorial
+- ✅ Tela completa com **11 seções** ⭐ ATUALIZADO
+- ✅ Boas-vindas, Criação, Comandos, Combate, Magias, **Talentos**, **Conquistas**, Crafting, Mapa, Progressão, Dicas
 - ✅ Acessível do Login e do jogo (comando `tutorial` ou botão 📖)
 
-### 4.19 Multi-idioma
+### 4.23 Multi-idioma
 - ✅ **Português** e **English**
 - ✅ Tradução da UI completa
 - ✅ **Aliases de comandos:** 60+ comandos em inglês funcionam
 - ✅ Configurável em Config → Idioma
 
-### 4.20 Sons e Música
+### 4.24 Sons e Música
 - ✅ **16 efeitos sonoros** sintetizados (sem MP3)
 - ✅ **Música ambiente procedural** (progressão Am → F → G → C, pad + baixo + reverb)
 - ✅ Volume controlável em tempo real
 - ✅ Toggle de som e música separados
 - ✅ Sons reagem ao tipo de mensagem no log (dano, cura, level up, morte, etc.)
 
-### 4.21 PWA
+### 4.25 PWA
 - ✅ Manifest com ícone SVG próprio
 - ✅ Service Worker com cache
 - ✅ Instalável como app (Chrome/Edge Android + iOS Safari)
 - ✅ Funciona offline depois do primeiro acesso
 - ✅ Prompt "Instalar como app" no painel de Config
 
-### 4.22 Multiplayer (via Firebase)
+### 4.26 Multiplayer (via Firebase)
 - ✅ **Chat global** em tempo real (modal 💬)
 - ✅ **Ranking global** (top 20 por nível, modal 🏆)
 - ✅ Ambos usam Firestore com regras de segurança
 
-### 4.23 Configurações
+### 4.27 Configurações
 - ✅ Modal com: idioma, tema (claro/escuro), som, música, volume, instalação PWA
 - ✅ Persistente em localStorage
 - ✅ Tema claro implementado via `[data-tema="claro"]`
 
-### 4.24 SEO e Indexação
+### 4.28 SEO e Indexação
 - ✅ Meta tags completas (title, description, keywords)
 - ✅ Open Graph (Facebook, WhatsApp, LinkedIn)
 - ✅ Twitter Card
@@ -357,8 +407,8 @@ VITE_FIREBASE_APP_ID=
 - ✅ Canonical URL
 - ⏳ **Pendente:** registro no Google Search Console (você já fez, precisa só confirmar indexação)
 
-### 4.25 Deploy
-- ✅ Repositório no GitHub
+### 4.29 Deploy
+- ✅ Repositório no GitHub (`DevWill-io/pedraverde`)
 - ✅ Auto deploy na Vercel
 - ✅ URL: https://pedraverde.vercel.app
 - ✅ Firebase configurado e ativo
@@ -375,7 +425,7 @@ VITE_FIREBASE_APP_ID=
 5. Vila de Pedraverde com 5 locais iniciais
 6. Sistema de combate básico
 
-### Fase 2 — Expansão (blocos 1-6)
+### Fase 2 — Expansão
 1. **Bloco 1:** Combate tático (7 ações + combo crítico)
 2. **Bloco 2:** Conteúdo expandido (mais itens, inimigos, quests)
 3. **Bloco 3:** Polimento visual (emojis, cores, animações, raridades)
@@ -389,7 +439,7 @@ VITE_FIREBASE_APP_ID=
 3. **Catálogo expandido:** 167 itens em 11 categorias com raridade mítico
 4. **Tutorial:** 9 seções completas
 
-### Fase 4 — Qualidade (blocos finais)
+### Fase 4 — Qualidade
 1. **i18n:** PT/EN com aliases de comandos
 2. **PWA:** instalável + offline
 3. **Sons:** efeitos + música procedural
@@ -398,7 +448,7 @@ VITE_FIREBASE_APP_ID=
 6. **SEO:** meta tags, robots.txt, sitemap.xml, schema.org
 7. **Deploy:** publicado na Vercel com Firebase ativo
 
-### Fase 5 — Correções (recentes)
+### Fase 5 — Correções
 1. **XP:** curva rebalanceada (era exponencial, agora polinomial suave)
 2. **Descrições:** adicionadas em itens, quests e lojas
 3. **Lojas:** lista numerada + descrição (dá pra comprar com número)
@@ -407,44 +457,30 @@ VITE_FIREBASE_APP_ID=
 6. **Inimigos reforçados:** +75-100% HP, +35-50% ATK
 7. **UX de clique:** sem cursor `|` no desktop, sem fundo azul no mobile, feedback visual próprio
 
+### Fase 6 — Features de longo prazo (recentes) ⭐ NOVO
+1. **Save export/import:** backup em JSON + migração entre dispositivos
+2. **Árvore de talentos:** 40 talentos em 5 classes × 4 níveis
+3. **IA reativa:** inimigos veem o que você fez e respondem
+4. **Chefes com padrões únicos:** Troll, Bruxa, Dragão, Múmia, Rei Antigo
+5. **Inimigos fogem** com HP baixo
+6. **Conquistas:** 45 conquistas em 7 categorias
+7. **Títulos:** 20 títulos equipáveis (bônus permanentes)
+8. **Tutorial expandido:** 11 seções (Talentos + Conquistas)
+
 ---
 
 ## 🎯 6. Melhorias Futuras (Roadmap)
 
 ### 🥇 Prioridade alta (mais impacto, menos esforço)
 
-#### 6.1 Save Export / Import
-- Botão "Exportar" baixa `.json` com o save
-- Botão "Importar" sobe o arquivo
-- **Impacto:** backup, migração entre dispositivos sem Firebase
-- **Esforço:** ~1h
-- **Onde:** modal de Config
-
-#### 6.2 Árvore de Talentos por Classe
-- A cada 5 níveis (5, 10, 15, 20), escolhe 1 de 2 talentos
-- **Guerreiro:** Fúria (dano +50% com HP < 30%) ou Resistência (+30% DEF)
-- **Mago:** Metamagia (magias -20% MP) ou Foco (+2 dano mágico)
-- **Ladino:** Furtividade (+esquiva) ou Assassino (+crítico)
-- **Clérigo:** Fé (cura +30%) ou Julgamento (+dano contra mortos-vivos)
-- **Arqueiro:** Tiro Duplo (ataque 2x) ou Mira Letal (+crítico)
-- **Impacto:** builds únicos, profundidade
-- **Esforço:** ~3-4h
-
-#### 6.3 Conquistas e Títulos
-- 30-50 achievements ("Matador de Dragões", "Explorador", "Colecionador")
-- Título aparece ao lado do nome no ranking
-- Cada conquista dá bônus pequeno permanente (+5 HP, +1 moeda/drop)
-- **Impacto:** recompensa de longo prazo
-- **Esforço:** ~3-4h
-
-#### 6.4 Eventos Diários / Login Streak
+#### 6.1 Eventos Diários / Login Streak
 - Login do dia dá recompensa (poção, moeda, item raro no 7º dia)
 - 3 missões diárias sorteadas
 - Missões semanais mais difíceis
 - **Impacto:** retenção
 - **Esforço:** ~2-3h
 
-#### 6.5 Filtros e Ordenação no Inventário
+#### 6.2 Filtros e Ordenação no Inventário
 - `inventario arma` — só armas
 - `inventario raro` — só raros
 - `inventario pocao` — só consumíveis
@@ -452,33 +488,13 @@ VITE_FIREBASE_APP_ID=
 - **Impacto:** QoL grande
 - **Esforço:** ~1h
 
-### 🥈 Alto impacto, esforço médio-alto
+#### 6.3 Toast Notifications Melhoradas
+- Aviso quando sobe nível, ganha conquista, acha loot raro
+- Notificação deslizante no canto da tela
+- **Impacto:** feedback visual
+- **Esforço:** ~1h
 
-#### 6.6 Campanha Principal com Narrativa
-- Prólogo ao criar personagem
-- 8-10 quests principais guiando pelos biomas
-- Antagonista desenvolvido (Rei Antigo com história)
-- 3 finais alternativos baseados em escolhas
-- **Impacto:** enorme — transforma em algo memorável
-- **Esforço:** alto (muito conteúdo)
-
-#### 6.7 Companheiros Recrutáveis
-- Cada região tem 1 NPC que pode te seguir
-- Ex: Lira (ladina), Borin (anão), Elyra (elfa)
-- Sistema de afinidade que sobe com o uso
-- Eles evoluem com você
-- **Impacto:** enorme
-- **Esforço:** alto
-
-#### 6.8 Escolhas com Consequência
-- Quests com 2 caminhos (matar vs poupar)
-- Sistema de karma (bom/neutro/mau)
-- Facções te tratam diferente
-- Itens exclusivos por alinhamento
-- **Impacto:** enorme
-- **Esforço:** médio-alto
-
-#### 6.9 Sistema de Clima e Horário
+#### 6.4 Sistema de Clima e Horário
 - Chuva: -1 dano de fogo, +1 de gelo
 - Neve: movimento lento, inimigos mais fortes
 - Noite: 30% mais encontros, inimigos raros
@@ -486,7 +502,33 @@ VITE_FIREBASE_APP_ID=
 - **Impacto:** imersão
 - **Esforço:** ~2h
 
-#### 6.10 Dungeon Procedural
+### 🥈 Alto impacto, esforço médio-alto
+
+#### 6.5 Campanha Principal com Narrativa
+- Prólogo ao criar personagem
+- 8-10 quests principais guiando pelos biomas
+- Antagonista desenvolvido (Rei Antigo com história)
+- 3 finais alternativos baseados em escolhas
+- **Impacto:** enorme — transforma em algo memorável
+- **Esforço:** alto (muito conteúdo)
+
+#### 6.6 Companheiros Recrutáveis
+- Cada região tem 1 NPC que pode te seguir
+- Ex: Lira (ladina), Borin (anão), Elyra (elfa)
+- Sistema de afinidade que sobe com o uso
+- Eles evoluem com você
+- **Impacto:** enorme
+- **Esforço:** alto
+
+#### 6.7 Escolhas com Consequência
+- Quests com 2 caminhos (matar vs poupar)
+- Sistema de karma (bom/neutro/mau)
+- Facções te tratam diferente
+- Itens exclusivos por alinhamento
+- **Impacto:** enorme
+- **Esforço:** médio-alto
+
+#### 6.8 Dungeon Procedural
 - Porta mágica em alguma região
 - Gera 5-10 andares aleatórios
 - Inimigos escalonam com profundidade
@@ -497,29 +539,28 @@ VITE_FIREBASE_APP_ID=
 
 ### 🥉 Enriquecimento (esforço baixo-médio)
 
-- **6.11** Diálogos com escolha (NPC pergunta, você escolhe 1/2/3)
-- **6.12** Loja entre jogadores (mercado global)
-- **6.13** Guildas (criar, entrar, chat interno)
-- **6.14** PvP amistoso (enfrentar outros jogadores)
-- **6.15** Karma / reputação com facções
-- **6.16** Sons ambientais por bioma (pássaros, ondas, vento)
-- **6.17** Toast notifications (aparece quando sobe nível, ganha conquista)
-- **6.18** Modo leitura (esconde botões, só texto)
-- **6.19** Auto-explorar (anda automaticamente até encontrar combate)
-- **6.20** Sistema de prestígio / reencarnação
+- **6.9** Diálogos com escolha (NPC pergunta, você escolhe 1/2/3)
+- **6.10** Loja entre jogadores (mercado global)
+- **6.11** Guildas (criar, entrar, chat interno)
+- **6.12** PvP amistoso (enfrentar outros jogadores)
+- **6.13** Karma / reputação com facções
+- **6.14** Sons ambientais por bioma (pássaros, ondas, vento)
+- **6.15** Modo leitura (esconde botões, só texto)
+- **6.16** Auto-explorar (anda automaticamente até encontrar combate)
+- **6.17** Sistema de prestígio / reencarnação
 
 ### 🚀 Longo prazo
 
-- **6.21** Multiplayer em tempo real (party de até 4, chefe mundial, PvP ranked)
-- **6.22** Prestígio (reset de nível por bônus permanente)
-- **6.23** Modos hardcore / ironman / speedrun
-- **6.24** Battle pass sazonal
-- **6.25** Mais idiomas (ES/FR/DE)
-- **6.26** Sistema de romance com NPCs
-- **6.27** Facções em guerra (Sol, Sombra, Selvagem)
-- **6.28** Livros e pergaminhos de lore (colecionáveis)
-- **6.29** Codex interno (enciclopédia do jogo)
-- **6.30** Chefes mundiais (todos jogadores atacam juntos)
+- **6.18** Multiplayer em tempo real (party de até 4, chefe mundial, PvP ranked)
+- **6.19** Prestígio (reset de nível por bônus permanente)
+- **6.20** Modos hardcore / ironman / speedrun
+- **6.21** Battle pass sazonal
+- **6.22** Mais idiomas (ES/FR/DE)
+- **6.23** Sistema de romance com NPCs
+- **6.24** Facções em guerra (Sol, Sombra, Selvagem)
+- **6.25** Livros e pergaminhos de lore (colecionáveis)
+- **6.26** Codex interno (enciclopédia do jogo)
+- **6.27** Chefes mundiais (todos jogadores atacam juntos)
 
 ---
 
@@ -548,6 +589,8 @@ feat(combate): adiciona sistema de combate tático
 balance(inimigos): aumenta HP e ATK em ~80%
 fix(loja): adiciona lista numerada com descrição
 style(ui): remove cursor de texto no desktop
+feat(talentos): adiciona árvore de talentos por classe
+feat(conquistas): adiciona sistema de conquistas e títulos
 ```
 
 ### 7.2 Padrões de Código
@@ -556,7 +599,7 @@ style(ui): remove cursor de texto no desktop
 - A função `processar(estado, entradaBruta)` recebe o estado e um comando
 - Retorna `{ estado, linhas }` onde `linhas` é array de `{ texto, tipo }`
 - Cada comando é um `case` no `switch` gigante
-- Helpers: `addItem`, `remItem`, `qtdItem`, `barra`, `tipoRaridade`, `raridadeTag`
+- Helpers: `addItem`, `remItem`, `qtdItem`, `barra`, `tipoRaridade`, `raridadeTag`, `temTalento`, `checarConquistas`
 
 **Tipos de linha (cores):**
 - `jogador` — azul (›)
@@ -567,6 +610,8 @@ style(ui): remove cursor de texto no desktop
 - `cura` — verde (✚)
 - `level-up` — amarelo brilhante (✦)
 - `quest*` — azul/verde/amarelo
+- `talento-*` — amarelo/azul/verde
+- `conquista*` — amarelo brilhante
 - `raridade-*` — cor da raridade
 - `separador` / `espaco` — divisórias invisíveis
 - `item-desc` — itálico cinza
@@ -581,9 +626,11 @@ style(ui): remove cursor de texto no desktop
   inventario: [{ id, qtd }],
   equipado: { arma, escudo, elmo, armadura, botas, anel, colar, capa },
   encantamentos: { slot: tipo },
+  talentos: [], pontosTalento: 0,
+  conquistasDesbloqueadas: [], titulo: null,
   questsAtivas: [], questsCompletas: [], progresso: {}, flags: {},
   emCombate: null,
-  estatisticas: { locaisVisitados, inimigosMortos, mortes, danoTotal, danoRecebido, magiasLancadas, eventosVividos, turnosDeCombate, vitoriasArena, nocauteArena, itensCriados, itensEncantados, criadoEm },
+  estatisticas: { locaisVisitados, inimigosMortos, mortes, danoTotal, danoRecebido, magiasLancadas, eventosVividos, turnosDeCombate, vitoriasArena, nocauteArena, itensCriados, itensEncantados, fugasInimigos, criadoEm },
   atualizadoEm
 }
 ```
@@ -608,7 +655,10 @@ service cloud.firestore {
       allow create: if request.auth != null
                     && request.resource.data.uid == request.auth.uid
                     && request.resource.data.texto is string
-                    && request.resource.data.texto.size() <= 200;
+                    && request.resource.data.texto.size() >= 1
+                    && request.resource.data.texto.size() <= 200
+                    && request.resource.data.nome is string
+                    && request.resource.data.nome.size() <= 20;
       allow update, delete: if false;
     }
   }
@@ -622,6 +672,7 @@ service cloud.firestore {
 - Ranking: top 20
 - Slots de save: 3
 - Nível máximo: sem limite (cresce com fórmula polinomial)
+- Import de save: máx 2MB
 
 ### 7.6 Como Rodar Localmente
 ```bash
@@ -670,6 +721,22 @@ Se você é uma IA lendo isso para continuar o projeto, saiba que:
    respostas do motor (só nos prefixos e nas mensagens que pedem).
    O terminal deve parecer profissional.
 
+9. **A IA dos inimigos é reativa.** Ao adicionar um novo inimigo, defina:
+   - `arquetipo` (agressivo, defensivo, tatico, bestial, magico)
+   - Se for chefe, defina `padrao` (array de ações na ordem)
+
+10. **Ao adicionar talentos**, use o formato:
+    ```js
+    { id, nome, emoji, desc, bonus: { atk, def, hpMax, manaMax }, flag }
+    ```
+    O bônus `hpMax` e `manaMax` é aplicado direto. `atk` e `def` são somados dinamicamente.
+
+11. **Ao adicionar conquistas**, use o formato:
+    ```js
+    { id, nome, emoji, desc, cat, bonus, titulo, check: (e) => boolean }
+    ```
+    Se `titulo` estiver definido, vira um título equipável.
+
 ---
 
 ## 📊 9. Métricas do Projeto
@@ -690,8 +757,11 @@ Se você é uma IA lendo isso para continuar o projeto, saiba que:
 | Receitas de crafting | 28 |
 | Status effects | 7 |
 | Eventos aleatórios | 12 |
-| Seções do tutorial | 9 |
-| Comandos | ~50 |
+| Talentos | 40 |
+| Conquistas | 45 |
+| Títulos | 20 |
+| Seções do tutorial | **11** |
+| Comandos | ~55 |
 | Idiomas | 2 (PT/EN) |
 | Efeitos sonoros | 16 |
 
@@ -701,30 +771,56 @@ Se você é uma IA lendo isso para continuar o projeto, saiba que:
 
 > Pedraverde é um RPG de texto em React + Vite + Firebase, publicado em
 > https://pedraverde.vercel.app. Tem ~167 itens, 9 regiões, 12 chefes, combate
-> tático de 7 ações, magias, crafting, encantamentos, PWA, sons procedurais,
-> chat global e ranking. Tudo documentado em `PROJETO.md`. As melhorias
-> futuras prioritárias são: save export/import, árvore de talentos, conquistas,
-> eventos diários, filtros no inventário, campanha com narrativa, companheiros
-> e escolhas com consequência. Convenção de commit: `tipo(escopo): descrição`.
+> tático de 7 ações com **IA reativa**, magias, **40 talentos** em 5 classes,
+> crafting, encantamentos, **45 conquistas + 20 títulos**, **save export/import
+> em JSON**, PWA, sons procedurais, chat global e ranking. Tudo documentado
+> em `PROJETO.md`. As melhorias futuras prioritárias são: eventos diários,
+> filtros no inventário, campanha com narrativa, companheiros, escolhas com
+> consequência e dungeon procedural. Convenção de commit:
+> `tipo(escopo): descrição`.
 
 ---
 
-*Última atualização: 2026-10-12*
+*Última atualização: 2026-10-12 — após implementação de save export/import,
+talentos, IA reativa e conquistas.*
 ```
 
 ---
 
-Salva isso como **`PROJETO.md`** na raiz do projeto (junto do `README.md`). Ele serve como:
+## ✅ O que mudou no `PROJETO.md`
 
-1. **Documentação viva** pra você consultar
-2. **Handoff** pra outro chat/assistente (só colar no começo)
-3. **Referência** pra quando voltar ao projeto depois de um tempo
+### ➕ Adicionado em "Funcionalidades Implementadas"
+| Seção | Status |
+|---|---|
+| **4.3 Save Export / Import** | ⭐ NOVO |
+| **4.7 IA Reativa de Inimigos** | ⭐ NOVO |
+| **4.8 Árvore de Talentos** | ⭐ NOVO |
+| **4.9 Conquistas e Títulos** | ⭐ NOVO |
+| Novos comandos em 4.5 | `examinar`, `talentos`, `escolher`, `conquistas`, `titulo` |
+| Tutorial atualizado | 9 → **11 seções** |
 
-Se quiser, comito também no GitHub junto dos outros arquivos — assim fica salvo na nuvem e você não perde.
+### ➖ Removido do Roadmap (já implementado)
+- ~~6.1 Save Export / Import~~ ✅ feito
+- ~~6.2 Árvore de Talentos~~ ✅ feito
+- ~~6.3 Conquistas e Títulos~~ ✅ feito
+
+### 🔄 Reorganizado
+- Roadmap renumerado (antigos 6.4 → 6.1, etc.)
+- Novas fases na linha do tempo: **Fase 6 — Features de longo prazo**
+- Estado do jogador ganhou: `talentos`, `pontosTalento`, `conquistasDesbloqueadas`, `titulo`, `fugasInimigos`
+
+### 📊 Métricas atualizadas
+- Talentos: **40**
+- Conquistas: **45**
+- Títulos: **20**
+- Seções do tutorial: **11**
+- Comandos: **~55** (antes ~50)
+
+---
 
 > 📝 **Commit sugerido:**
 > ```
-> docs(handoff): adiciona PROJETO.md com documentação completa e roadmap
+> docs(handoff): atualiza PROJETO.md com talentos, conquistas, IA e export/import
 > ```
 
-Agora bora implementar as melhorias! Qual você quer atacar primeiro? Minha aposta continua sendo o **Save Export/Import** (rápido e essencial). ⚔
+Salva o arquivo, faz commit e push. Quando voltar ao projeto (ou trocar de chat), é só colar esse arquivo que tudo fica claro. ⚔

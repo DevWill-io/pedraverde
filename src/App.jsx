@@ -11,6 +11,7 @@ import { MAGIAS } from './content/magias.js';
 import { EFEITOS } from './content/efeitos.js';
 import { ENCANTAMENTOS } from './content/encantamentos.js';
 import { CONQUISTAS } from './content/conquistas.js';
+import { calcularPeriodo, formatarHora, getClima } from './content/clima.js';
 import { lerIdioma, gravarIdioma, traduzir } from './content/i18n.js';
 import {
   tocar, somDeLinha, setSomHabilitado, setVolume,
@@ -50,6 +51,7 @@ const PREFIXOS = {
   'talento-ponto': '★', 'talento-info': ' ', 'talento-opcao': ' ', 'talento-ok': '★',
   'talento-bloq': '🔒', 'talento-comando': ' ', 'talento-aprendido': '★',
   conquista: '🏆', 'conquista-desc': ' ', 'conquista-info': ' ', 'conquista-ok': ' ', 'conquista-bloq': '🔒',
+  'tempo-clima': ' ', 'tempo-periodo': ' ', 'tempo-info': ' ', 'tempo-aviso': '⚠', 'tempo-efeito': ' ',
 };
 
 function lerConfig() {
@@ -79,11 +81,7 @@ function TelaCriacao({ idioma, onConfirmar, onCancelar }) {
     };
   }, [raca, classe]);
 
-  function confirmar(ev) {
-    ev?.preventDefault();
-    tocar('clique');
-    onConfirmar({ nome: nome.trim() || 'Herói', raca: racaId, classe: classeId });
-  }
+  function confirmar(ev) { ev?.preventDefault(); tocar('clique'); onConfirmar({ nome: nome.trim() || 'Herói', raca: racaId, classe: classeId }); }
 
   return (
     <div className="tela tela-criacao">
@@ -243,8 +241,8 @@ function TelaJogo({
   const pctMp = estado.manaMax > 0 ? Math.max(0, Math.min(100, (estado.mana / estado.manaMax) * 100)) : 0;
   const atalhos = useMemo(
     () => idioma === 'en'
-      ? ['look', 'map', 'stats', 'inventory', 'spells', 'talents', 'achievements', 'quests', 'help']
-      : ['olhar', 'mapa', 'status', 'inventario', 'magias', 'talentos', 'conquistas', 'quests', 'ajuda'],
+      ? ['look', 'map', 'weather', 'stats', 'inventory', 'spells', 'talents', 'achievements', 'quests', 'help']
+      : ['olhar', 'mapa', 'clima', 'status', 'inventario', 'magias', 'talentos', 'conquistas', 'quests', 'ajuda'],
     [idioma],
   );
 
@@ -257,8 +255,11 @@ function TelaJogo({
   const emArena = local?.arena && !emCombate;
   const encArma = estado.encantamentos?.arma;
   const pontosTalento = estado.pontosTalento || 0;
-  const totalConquistas = CONQUISTAS.length;
-  const conquistasFeitas = estado.conquistasDesbloqueadas?.length || 0;
+
+  // ⭐ Clima e hora
+  const clima = getClima(estado.climaAtual || 'limpo');
+  const periodo = calcularPeriodo(estado.hora || 12);
+  const horaTexto = formatarHora(estado.hora || 12);
 
   return (
     <div className="tela jogo">
@@ -280,6 +281,14 @@ function TelaJogo({
           <div className="barra"><div className={`barra-preenchimento ${hpClasse}`} style={{ width: `${pctHp}%` }} /><span className="barra-texto">HP {estado.hp}/{estado.hpMax}</span></div>
           {estado.manaMax > 0 && <div className="barra"><div className="barra-preenchimento mana" style={{ width: `${pctMp}%` }} /><span className="barra-texto">MP {estado.mana}/{estado.manaMax}</span></div>}
           <div className="barra"><div className="barra-preenchimento xp" style={{ width: `${pctXp}%` }} /><span className="barra-texto">XP {estado.xp}/{estado.xpProx}</span></div>
+        </div>
+
+        {/* ⭐ Clima e hora */}
+        <div className="faixa-tempo">
+          <span className={`tempo-tag ${clima.cor || ''}`} title={clima.desc}>{clima.emoji} {clima.nome}</span>
+          <span className={`tempo-tag ${periodo.cor || ''}`} title={periodo.desc}>{periodo.emoji} {periodo.nome}</span>
+          <span className="tempo-tag tempo-hora">🕐 {horaTexto}</span>
+          <span className="tempo-tag tempo-dia">📅 Dia {estado.dia || 1}</span>
         </div>
 
         {!emCombate && efeitosAtivos.length > 0 && (
