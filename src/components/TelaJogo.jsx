@@ -15,7 +15,7 @@ import { chatDisponivel, rankingDisponivel } from '../chat.js';
 import { PREFIXOS } from '../constants/prefixos.js';
 import { TOAST_TIPOS } from '../constants/toasts.js';
 
-const MAX_LOG = 25;
+const MAX_LOG = 1000;
 const ACOES_COMBATE_RAPIDAS = ['atacar', 'forte', 'rapido', 'defender', 'esquivar', 'focar', 'fugir'];
 
 export default function TelaJogo({
