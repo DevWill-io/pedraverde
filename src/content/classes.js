@@ -37,7 +37,7 @@ export const CLASSES = {
     nome: 'Arqueiro',
     emoji: '🏹',
     desc: 'Precisão letal à distância. Ignora defesas.',
-    bonus: { hpMax: 3, atk: 4, def: 1, manaMax: 10 },
+    bonus: { hpMax: 3, atk: 3, def: 1, manaMax: 10 },
     magias: ['tiro_certeiro'],
   },
 };

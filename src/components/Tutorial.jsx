@@ -223,12 +223,26 @@ function SecaoCombate() {
       <h2>⚔ Combate Tático</h2>
       <p>Quando um inimigo aparece, você entra em combate por turnos. A cada turno você <strong>escolhe uma ação</strong> — e cada ação tem prós e contras.</p>
 
+      <h3>Como o dano é calculado</h3>
+      <p>O combate usa <strong>dado de 20 faces</strong> (d20), como em RPGs de mesa:</p>
+      <p style={{ color: '#ffd166', fontWeight: 'bold' }}>
+        dano = d20 + modificador − (DEF do alvo ÷ 2)
+      </p>
+      <p>Seu <strong>modificador</strong> é calculado assim: <code>(ATK − 10) ÷ 2</code>. Ou seja, cada 2 pontos de ATK vale +1 no dado.</p>
+
+      <h3>Regras especiais do d20</h3>
+      <ul>
+        <li><strong style={{ color: '#ff6b6b' }}>Tirou 1:</strong> Falha crítica. Você erra o ataque, mesmo se tiver bônus altíssimo.</li>
+        <li><strong style={{ color: '#7ee787' }}>Tirou 20:</strong> Crítico natural! O dano dobra automaticamente.</li>
+      </ul>
+
+      <h3>Ações do combate</h3>
       <table className="tut-tabela">
         <thead>
           <tr><th>Ação</th><th>Efeito</th><th>Risco</th></tr>
         </thead>
         <tbody>
-          <tr><td><code>atacar</code></td><td>Dano normal (ATK + d6 − DEF)</td><td>Nenhum</td></tr>
+          <tr><td><code>atacar</code></td><td>Rola d20 + modificador normalmente</td><td>Nenhum</td></tr>
           <tr><td><code>forte</code></td><td>Dano ×1.5</td><td>30% de errar</td></tr>
           <tr><td><code>rapido</code></td><td>Dano −2</td><td>Nenhum (ataque leve)</td></tr>
           <tr><td><code>defender</code></td><td>Não ataca; reduz 60% do dano recebido</td><td>Perde o ataque</td></tr>

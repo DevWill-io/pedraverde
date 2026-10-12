@@ -27,7 +27,7 @@ import {
 import {
   DUNGEON_INFO, gerarDungeon, bonusPorAndar,
   poolInimigos, poolMiniChefes, poolChefeFinal,
-} from '../content/dungeon.js'; 
+} from '../content/dungeon.js';
 import {
   PROLOGO, CAMPANHA, FINAIS, capituloAtual, totalCapitulos, falasAldric,
 } from '../content/campanha.js';
@@ -37,10 +37,67 @@ injetarItens(ITENS);
 const d6 = () => 1 + Math.floor(Math.random() * 6);
 
 /* ================================================================== */
+/* SISTEMA DE DADOS (d20 + modificador)                                */
+/* ================================================================== */
+
+const d20 = () => 1 + Math.floor(Math.random() * 20);
+
+/** Modificador clássico de D&D: (ATK - 10) / 2 */
+export function modificadorATK(atk) {
+  return Math.floor((atk - 10) / 2);
+}
+
+/**
+ * Rola um ataque no sistema d20 + modificador.
+ * Retorna { d20, critico, falhaCritica, errou, dano }
+ *
+ * Regras:
+ *   • 1 natural = falha crítica (erra SEMPRE, mesmo com bônus alto)
+ *   • 20 natural = crítico (dano x2)
+ *   • Dano = d20 + modificadorATK - floor(DEF_defensor * 0.5)
+ */
+function rolarAtaque(modificador, defesa, modificadores = {}) {
+  const r = d20();
+  const critico = r === 20;
+  const falhaCritica = r === 1;
+
+  if (falhaCritica) {
+    return { d20: r, errou: true, critico: false, falhaCritica: true, dano: 0 };
+  }
+
+  // DEF do defensor vale 50%
+  const defReduzida = Math.floor(defesa * 0.5);
+
+  // Modificadores extras (ação "forte", talentos, clima, etc.)
+  let modFinal = modificador;
+  if (modificadores.extra) modFinal += modificadores.extra;
+  if (modificadores.vantagem) modFinal += modificadores.vantagem;
+
+  let dano = r + modFinal - defReduzida;
+
+  // Crítico natural
+  if (critico) {
+    dano *= 2;
+  }
+
+  // Modificador de ação (ex: "forte" = +30% de dano)
+  if (modificadores.multiplicador) {
+    dano = Math.round(dano * modificadores.multiplicador);
+  }
+
+  return {
+    d20: r,
+    errou: false,
+    critico,
+    falhaCritica: false,
+    dano: Math.max(1, dano),
+  };
+}
+
+/* ================================================================== */
 /* Filtros de inventário                                               */
 /* ================================================================== */
 const FILTROS_INVENTARIO = {
-  /* ---------- por tipo ---------- */
   arma:         { label: 'armas',       fn: (d) => d.tipo === 'arma' },
   armas:        { label: 'armas',       fn: (d) => d.tipo === 'arma' },
   escudo:       { label: 'escudos',     fn: (d) => d.tipo === 'escudo' },
@@ -68,12 +125,8 @@ const FILTROS_INVENTARIO = {
   materiais:    { label: 'materiais',   fn: (d) => d.tipo === 'material' },
   gema:         { label: 'gemas',       fn: (d) => d.tipo === 'material' && (d.id?.startsWith('gema_') || d.id === 'cristal') },
   gemas:        { label: 'gemas',       fn: (d) => d.tipo === 'material' && (d.id?.startsWith('gema_') || d.id === 'cristal') },
-
-  /* ---------- por equipado ---------- */
   equipado:     { label: 'equipados',   fn: (d, id, e) => Object.values(e.equipado).includes(id) },
   equipados:    { label: 'equipados',   fn: (d, id, e) => Object.values(e.equipado).includes(id) },
-
-  /* ---------- por raridade ---------- */
   comum:        { label: 'comuns',      fn: (d) => !d.raridade || d.raridade === 'comum' },
   comuns:       { label: 'comuns',      fn: (d) => !d.raridade || d.raridade === 'comum' },
   incomum:      { label: 'incomuns',    fn: (d) => d.raridade === 'incomum' },
@@ -125,7 +178,9 @@ export function novoJogo(opcoes = {}) {
   const classeId = opcoes.classe || 'guerreiro';
   const raca = RACAS[racaId] || RACAS.humano;
   const classe = CLASSES[classeId] || CLASSES.guerreiro;
-  const base = { hpMax: 30, atk: 5, def: 2, manaMax: 10, moedas: 20 };
+
+  // ⭐ ATK base sobe para 12 (sistema d20)
+  const base = { hpMax: 30, atk: 12, def: 2, manaMax: 10, moedas: 20 };
   const bonus = {
     hpMax: (raca.bonus.hpMax || 0) + (classe.bonus.hpMax || 0),
     atk: (raca.bonus.atk || 0) + (classe.bonus.atk || 0),
@@ -136,7 +191,7 @@ export function novoJogo(opcoes = {}) {
   const manaMax = Math.max(0, base.manaMax + bonus.manaMax);
 
   return {
-    versao: 11,
+    versao: 12,
     nome: (nome || '').trim() || 'Herói',
     raca: racaId, classe: classeId,
     nivel: 1, xp: 0, xpProx: xpProximoNivel(1),
@@ -146,22 +201,14 @@ export function novoJogo(opcoes = {}) {
     magias: [...(classe.magias || [])],
     efeitos: [],
     local: 'pedraverde',
-    // ⭐ Sistema de tempo e clima
-    hora: 6,           // começa ao meio-dia
-    dia: 1,             // dia 1
+    hora: 6,
+    dia: 1,
     climaAtual: 'limpo',
-    contadorTempo: 0,  // quantos comandos desde o último avanço
-    ultimoDescanso: -999, // hora absoluta do último descanso (cooldown)
-    // ⭐ Sistema de missões diárias + login streak
+    contadorTempo: 0,
+    ultimoDescanso: -999,
     diarias: {
-      data: null,              // data atual das missões (YYYY-MM-DD)
-      missoes: [],             // IDs das 3 missões do dia
-      progresso: {},           // { missaoId: progressoAtual }
-      concluidas: [],          // IDs já completados hoje
-      reivindicadas: [],       // IDs cujas recompensas foram pegas
-      streak: 0,               // dias consecutivos de login
-      ultimoLogin: null,       // data do último login (YYYY-MM-DD)
-      recompensaPendente: 0,   // dia do streak a reivindicar (0 = nada)
+      data: null, missoes: [], progresso: {}, concluidas: [], reivindicadas: [],
+      streak: 0, ultimoLogin: null, recompensaPendente: 0,
     },
     inventario: [{ id: 'pocao', qtd: 2 }, { id: 'pao', qtd: 2 }],
     equipado: { arma: null, escudo: null, elmo: null, armadura: null, botas: null, anel: null, colar: null, capa: null },
@@ -176,7 +223,7 @@ export function novoJogo(opcoes = {}) {
     campanha: {
       prologoVisto: false,
       capitulosCompletos: [],
-      final: null,          // 'matar' | 'poupar' | 'juntar' | null
+      final: null,
       escolhaFinalFeita: false,
     },
     estatisticas: {
@@ -192,8 +239,6 @@ export function novoJogo(opcoes = {}) {
 /* ================================================================== */
 /* TEMPO E CLIMA                                                       */
 /* ================================================================== */
-
-/** Avança o tempo. Se `forcar` for true, ignora o contador e avança na hora. */
 function avancarTempo(e, p, forcar = false) {
   if (!forcar) {
     e.contadorTempo = (e.contadorTempo || 0) + 1;
@@ -204,13 +249,11 @@ function avancarTempo(e, p, forcar = false) {
   const horaAntiga = e.hora || 6;
   e.hora = avancarHora(e.hora || 6, 1);
 
-  // Se chegou à meia-noite, avança o dia e pula direto pro amanhecer (06:00)
   if (e.hora === 0) {
     e.dia = (e.dia || 1) + 1;
     e.hora = 6;
   }
 
-  // Anuncia mudanças notáveis
   const periodoAntigo = calcularPeriodo(horaAntiga).id;
   const periodoNovo = calcularPeriodo(e.hora).id;
 
@@ -219,7 +262,6 @@ function avancarTempo(e, p, forcar = false) {
     p(`${per.emoji} O tempo passa — ${per.nome} em Pedraverde. (${formatarHora(e.hora)})`, 'tempo-periodo');
   }
 
-  // Chance de trocar o clima (30% por hora)
   if (Math.random() < 0.3) {
     const regiao = MUNDO[e.local]?.regiao || 'vila';
     const novoClima = sortearClima(regiao);
@@ -315,13 +357,11 @@ function normalizarEstado(e) {
   if (typeof e.manaMax !== 'number') e.manaMax = 10;
   if (!e.raca) e.raca = 'humano';
   if (!e.classe) e.classe = 'guerreiro';
-  // ⭐ Sistema de tempo (retrocompatível)
   if (typeof e.hora !== 'number') e.hora = 6;
   if (typeof e.dia !== 'number') e.dia = 1;
   if (!e.climaAtual) e.climaAtual = 'limpo';
   if (typeof e.contadorTempo !== 'number') e.contadorTempo = 0;
   if (typeof e.ultimoDescanso !== 'number') e.ultimoDescanso = -999;
-  // ⭐ Sistema de diárias (retrocompatível)
   if (!e.diarias) {
     e.diarias = {
       data: null, missoes: [], progresso: {}, concluidas: [], reivindicadas: [],
@@ -336,7 +376,7 @@ function normalizarEstado(e) {
   if (typeof e.estatisticas.itensCriados !== 'number') e.estatisticas.itensCriados = 0;
   if (typeof e.estatisticas.itensEncantados !== 'number') e.estatisticas.itensEncantados = 0;
   if (typeof e.estatisticas.fugasInimigos !== 'number') e.estatisticas.fugasInimigos = 0;
-    // ⭐ Campanha (retrocompatível)
+  if (e.dungeon === undefined) e.dungeon = null;
   if (!e.campanha) {
     e.campanha = {
       prologoVisto: false,
@@ -345,7 +385,6 @@ function normalizarEstado(e) {
       escolhaFinalFeita: false,
     };
   }
-  // Marca retroativamente os capítulos completos baseado nas flags
   if (Array.isArray(CAMPANHA)) {
     for (const cap of CAMPANHA) {
       if (cap.check(e) && !e.campanha.capitulosCompletos.includes(cap.id)) {
@@ -404,15 +443,10 @@ function checarConquistas(e, p) {
 /* ================================================================== */
 /* Missões Diárias + Login Streak                                      */
 /* ================================================================== */
-
-/** Atualiza as diárias se virou o dia. Chamado no início de processar() */
 function atualizarDiarias(e, p) {
   const dataHoje = hoje();
   const d = e.diarias;
-
-  /* ---- Primeira vez ou virou o dia ---- */
   if (d.data !== dataHoje) {
-    // Sorteia 3 novas missões
     const novas = sortearMissoesDiarias(3);
     d.data = dataHoje;
     d.missoes = novas.map((m) => m.id);
@@ -422,42 +456,27 @@ function atualizarDiarias(e, p) {
     p('', 'espaco');
     p('📅 Novas missões diárias disponíveis! Use "diarias" para ver.', 'quest');
     p('', 'espaco');
-
-    /* ---- Login streak ---- */
     if (d.ultimoLogin === ontem()) {
-      // Continua o streak
       d.streak = (d.streak || 0) + 1;
     } else if (d.ultimoLogin !== dataHoje) {
-      // Quebrou ou primeiro login
       d.streak = 1;
     }
-
     d.ultimoLogin = dataHoje;
     d.recompensaPendente = ((d.streak - 1) % 7) + 1;
-
     p(`🔥 Login streak: ${d.streak} dia${d.streak > 1 ? 's' : ''} consecutivos!`, 'level-up');
     p(`   Use "reivindicar" para pegar a recompensa do dia.`, 'sistema');
   }
 }
 
-/** Registra progresso numa missão diária */
 function progredirDiaria(e, tipo, valor, p) {
   const d = e.diarias;
   if (!d?.missoes?.length) return;
-
   for (const mId of d.missoes) {
     if (d.concluidas.includes(mId)) continue;
     const m = acharMissao(mId);
     if (!m) continue;
-
-    // Verifica se o tipo bate
-    const tiposCompativeis = [m.objetivo.tipo];
-    if (m.objetivo.tipo === 'matar' && tipo === 'matar') tiposCompativeis.push('matar');
-    if (m.objetivo.tipo === 'matar_chefe' && tipo === 'matar_chefe') tiposCompativeis.push('matar_chefe');
-    if (!tiposCompativeis.includes(tipo)) continue;
-
+    if (m.objetivo.tipo !== tipo) continue;
     d.progresso[mId] = (d.progresso[mId] || 0) + valor;
-
     if (d.progresso[mId] >= m.objetivo.qtd) {
       d.concluidas.push(mId);
       p(`📅 Missão diária completa: ${m.emoji} ${m.nome}!`, 'quest');
@@ -468,16 +487,11 @@ function progredirDiaria(e, tipo, valor, p) {
   }
 }
 
-/** Reivindica recompensa de missão completa ou do login streak */
 function reivindicarRecompensa(e, arg, p) {
   const d = e.diarias;
   const alvo = normalizar(arg);
-
-  /* ---- Reivindicar TODAS as diárias completas ---- */
   if (alvo === '' || alvo === 'tudo' || alvo === 'todas' || alvo === 'all') {
     let ganhos = 0;
-
-    // Reivindica streak (prioridade)
     if (d.recompensaPendente > 0) {
       const rec = recompensaStreak(d.recompensaPendente);
       if (rec) {
@@ -490,8 +504,6 @@ function reivindicarRecompensa(e, arg, p) {
         checarNivel(e, p);
       }
     }
-
-    // Reivindica diárias
     for (const mId of [...d.concluidas]) {
       if (d.reivindicadas.includes(mId)) continue;
       const m = acharMissao(mId);
@@ -504,15 +516,12 @@ function reivindicarRecompensa(e, arg, p) {
       ganhos++;
       checarNivel(e, p);
     }
-
     if (ganhos === 0) {
       p('Nada para reivindicar agora.', 'sistema');
       p('Use "diarias" para ver o progresso.', 'sistema');
     }
     return;
   }
-
-  /* ---- Reivindicar streak ---- */
   if (alvo === 'streak' || alvo === 'login') {
     if (d.recompensaPendente <= 0) {
       p('Você já reivindicou a recompensa de login do dia.', 'sistema');
@@ -529,12 +538,9 @@ function reivindicarRecompensa(e, arg, p) {
     }
     return;
   }
-
-  /* ---- Reivindicar missão específica ---- */
   const m = d.missoes
     .map((id) => acharMissao(id))
     .find((x) => x && (normalizar(x.nome).includes(alvo) || normalizar(x.id).includes(alvo)));
-
   if (!m) {
     p('Missão não encontrada. Use "diarias" para ver a lista.', 'erro');
     return;
@@ -547,7 +553,6 @@ function reivindicarRecompensa(e, arg, p) {
     p('Você já reivindicou essa recompensa.', 'erro');
     return;
   }
-
   const r = m.recompensa || {};
   if (r.moedas) e.moedas += r.moedas;
   if (r.xp) e.xp += r.xp;
@@ -556,25 +561,21 @@ function reivindicarRecompensa(e, arg, p) {
   checarNivel(e, p);
 }
 
-/** Comando "diarias" — lista missões do dia + login streak */
 function listarDiarias(e, p) {
   const d = e.diarias;
   p('◆ Missões Diárias', 'titulo');
   p(`📅 Data: ${d.data || hoje()}`, 'tempo-info');
   p('', 'espaco');
-
   if (!d.missoes?.length) {
     p('Nenhuma missão disponível hoje.', 'sistema');
     return;
   }
-
   for (const mId of d.missoes) {
     const m = acharMissao(mId);
     if (!m) continue;
     const prog = d.progresso[mId] || 0;
     const completa = d.concluidas.includes(mId);
     const reivindicada = d.reivindicadas.includes(mId);
-
     if (reivindicada) {
       p(`${m.emoji} ${m.nome} — ✓ Recompensa pegada`, 'quest-feita');
     } else if (completa) {
@@ -590,8 +591,6 @@ function listarDiarias(e, p) {
     if (partes.length) p(`     Recompensa: ${partes.join(' · ')}`, 'loot');
     p('', 'separador');
   }
-
-  /* ---- Login Streak ---- */
   p('◆ Login Streak', 'titulo');
   p(`🔥 Dias consecutivos: ${d.streak}`, 'level-up');
   if (d.recompensaPendente > 0) {
@@ -604,8 +603,6 @@ function listarDiarias(e, p) {
     p('✓ Recompensa do dia já foi pega.', 'sucesso');
   }
   p('', 'espaco');
-
-  /* ---- Dicas ---- */
   const algumaPronta = d.concluidas.some((id) => !d.reivindicadas.includes(id));
   if (algumaPronta || d.recompensaPendente > 0) {
     p('💡 Use "reivindicar" para pegar todas as recompensas disponíveis.', 'sistema');
@@ -715,7 +712,6 @@ function resumoEfeitos(e) {
 /* ================================================================== */
 function talvezEvento(e, local, p) {
   if (!local.inimigos?.length && !local.chefe) return;
-  // ⭐ Bônus de encontro por período (noite aumenta)
   const periodo = calcularPeriodo(e.hora || 12);
   const chanceBase = 0.15 + (periodo.encontroBonus || 0);
   if (Math.random() > chanceBase) return;
@@ -744,10 +740,32 @@ function lancarMagia(e, magiaId, p) {
   progredirDiaria(e, 'magia', 1, p);
 
   if (m.tipo === 'ataque') {
-    let dano = m.dano ? m.dano + d6() : Math.round(atkTotal(e) * (m.multiplicador || 1));
+    const modMagico = modificadorATK(atkTotal(e));
+    const rolagem = d20();
+
+    // Falha crítica em magias (1 natural)
+    if (rolagem === 1) {
+      p('✖ Falha crítica! A magia explode nas suas mãos.', 'erro');
+      return true;
+    }
+
+    let dano;
+    if (m.dano) {
+      dano = m.dano + rolagem + modMagico;
+    } else {
+      dano = Math.round((rolagem + modMagico) * (m.multiplicador || 1));
+    }
     if (temTalento(e, 'foco_mago')) dano += 3;
 
-    // ⭐ Modificadores de clima
+    // Crítico natural (20)
+    let critico = false;
+    if (rolagem === 20) {
+      dano *= 2;
+      critico = true;
+      p('✦ CRÍTICO MÁGICO!', 'dano-critico');
+    }
+
+    // Modificadores de clima
     const clima = getClima(e.climaAtual || 'limpo');
     let modClima = 0;
     if (magiaId === 'bola_fogo') {
@@ -762,26 +780,24 @@ function lancarMagia(e, magiaId, p) {
       else p(`   ${clima.emoji} ${clima.nome} amplifica a magia (+${modClima} dano).`, 'tempo-clima');
     }
 
-    if (!m.ignoraDef) dano -= ini.def;
+    if (!m.ignoraDef) dano -= Math.floor(ini.def * 0.5);
     dano = Math.max(1, dano);
-    if (!m.semErro && Math.random() < 0.1) p('✖ A magia errou.', 'erro');
-    else {
-      ini.hp -= dano; e.estatisticas.danoTotal += dano;
-      const ex = [];
-      if (m.ignoraDef) ex.push('ignora DEF');
-      let chanceCong = m.chanceCongelar || 0;
-      if (chanceCong && temTalento(e, 'criomante')) chanceCong += 0.2;
-      if (m.chanceAtordoar && Math.random() < m.chanceAtordoar) { aplicarEfeito(ini, 'atordoado'); ex.push('ATORDOADO'); }
-      if (chanceCong && Math.random() < chanceCong) { aplicarEfeito(ini, 'congelado'); ex.push('CONGELADO'); }
-      const mortosVivos = ['esqueleto', 'mumia_rei', 'bispo_sombrio'];
-      if (mortosVivos.includes(ini.id) && temTalento(e, 'julgamento')) {
-        const extra = Math.round(dano * 0.5);
-        ini.hp -= extra; e.estatisticas.danoTotal += extra;
-        ex.push(`JULGAMENTO +${extra}`);
-      }
-      const tag = ex.length ? ` (${ex.join(', ')})` : '';
-      p(`✦ ${m.nome} causa ${dano}${tag}.`, 'dano-magico');
+    ini.hp -= dano; e.estatisticas.danoTotal += dano;
+    const ex = [];
+    if (m.ignoraDef) ex.push('ignora DEF');
+    if (critico) ex.push('CRÍTICO');
+    let chanceCong = m.chanceCongelar || 0;
+    if (chanceCong && temTalento(e, 'criomante')) chanceCong += 0.2;
+    if (m.chanceAtordoar && Math.random() < m.chanceAtordoar) { aplicarEfeito(ini, 'atordoado'); ex.push('ATORDOADO'); }
+    if (chanceCong && Math.random() < chanceCong) { aplicarEfeito(ini, 'congelado'); ex.push('CONGELADO'); }
+    const mortosVivos = ['esqueleto', 'mumia_rei', 'bispo_sombrio'];
+    if (mortosVivos.includes(ini.id) && temTalento(e, 'julgamento')) {
+      const extra = Math.round(dano * 0.5);
+      ini.hp -= extra; e.estatisticas.danoTotal += extra;
+      ex.push(`JULGAMENTO +${extra}`);
     }
+    const tag = ex.length ? ` (${ex.join(', ')})` : '';
+    p(`✦ ${m.nome} causa ${dano}${tag}.`, 'dano-magico');
     if (ini.hp <= 0) { vencer(e, p); return true; }
   } else if (m.tipo === 'suporte') {
     if (m.cura) {
@@ -851,7 +867,6 @@ function iniciarCombate(e, id, p) {
   const periodo = calcularPeriodo(e.hora || 12);
   const clima = getClima(e.climaAtual || 'limpo');
 
-  // ⭐ Ajuste de inimigo por período + clima
   const atkBonus = (periodo.atkInimigo || 0) + (clima.inimigoAtkBonus || 0);
   const hpBonusPct = (periodo.hpInimigo || 0) + (clima.vidaExtra || 0);
   const hpFinal = Math.round(b.hp * (1 + hpBonusPct));
@@ -870,7 +885,6 @@ function iniciarCombate(e, id, p) {
   p(`⚔ ${b.chefe ? 'CHEFE! ' : ''}Um ${b.nome} surge!`, tipo);
   if (b.desc) p(b.desc, 'sistema');
 
-  // ⭐ Avisa se período/clima afetou
   if (atkBonus > 0 || hpBonusPct > 0) {
     const mods = [];
     if (periodo.atkInimigo) mods.push(`+${periodo.atkInimigo} ATK (${periodo.nome})`);
@@ -910,55 +924,107 @@ function mostrarStatusCombate(e, p) {
     else if (x.tipo === 'congelado') efI.push('❄ congelado');
   }
   if (efI.length) p('  Inimigo: ' + efI.join(' | '), 'combate');
+  const mod = modificadorATK(atkTotal(e));
+  const sinal = mod >= 0 ? '+' : '';
+  p(`  Seu modificador de ataque: ${sinal}${mod} (d20${sinal}${mod})`, 'stats');
   p('Ações: atacar · forte · rapido · defender · esquivar · focar · magia · usar · fugir', 'sistema');
 }
 
 function ataqueJogador(e, ini, acao) {
   const clima = getClima(e.climaAtual || 'limpo');
-  let dano = atkTotal(e) + d6() - ini.def;
-  let errou = false, critico = false;
-
-  // ⭐ Nevoeiro: chance de errar
-  if (clima.chanceErrar > 0 && Math.random() < clima.chanceErrar) {
-    return { dano: 0, errou: true, critico: false, motivo: 'nevoeiro' };
-  }
+  const modBase = modificadorATK(atkTotal(e));
+  const mods = {};
 
   if (acao === 'forte') {
-    if (Math.random() < 0.3) errou = true;
-    else dano = Math.round(dano * 1.5);
+    if (Math.random() < 0.3) {
+      return { d20: 0, dano: 0, errou: true, critico: false, falhaCritica: false };
+    }
+    mods.multiplicador = 1.5;
   } else if (acao === 'rapido') {
-    dano = Math.max(1, dano - 2);
+    mods.extra = -2;
   }
 
-  // ⭐ Modificador de clima para encantamento
+  if (temTalento(e, 'perfurante')) mods.extra = (mods.extra || 0) + 2;
+  if (temTalento(e, 'furia') && e.hp / e.hpMax < 0.3) mods.multiplicador = (mods.multiplicador || 1) * 1.5;
+  if (temTalento(e, 'mestre_sombras') && e.hp >= e.hpMax) mods.extra = (mods.extra || 0) + 3;
+
+  if (e.emCombate.criticoCarregado) {
+    mods.vantagem = 5;
+    e.emCombate.criticoCarregado = false;
+  }
+
+  if (clima.critBonus) mods.vantagem = (mods.vantagem || 0) + 1;
+
+  if (clima.chanceErrar > 0 && Math.random() < clima.chanceErrar) {
+    return { d20: 0, dano: 0, errou: true, critico: false, falhaCritica: false, motivo: 'nevoeiro' };
+  }
+
+  let resultado = rolarAtaque(modBase, ini.def, mods);
+
+  if (!resultado.errou && e.emCombate.inimigoDefendendo) {
+    resultado.dano = Math.max(1, Math.round(resultado.dano * 0.4));
+  }
+  if (!resultado.errou && e.emCombate.inimigoEsquivando && Math.random() < 0.5) {
+    resultado.errou = true;
+    resultado.dano = 0;
+  }
+
+  if (resultado.critico && temTalento(e, 'assassino')) {
+    resultado.dano = Math.round(resultado.dano * 1.5);
+  }
+
   const encArma = e.encantamentos?.arma;
   let modClima = 0;
   if (encArma === 'fogo') modClima = clima.danoFogo;
   else if (encArma === 'gelo') modClima = clima.danoGelo;
-  dano += modClima;
+  if (modClima && !resultado.errou) resultado.dano = Math.max(1, resultado.dano + modClima);
 
-  if (temTalento(e, 'perfurante')) dano += 3;
-  if (temTalento(e, 'furia') && e.hp / e.hpMax < 0.3) dano = Math.round(dano * 1.5);
-  if (temTalento(e, 'mestre_sombras') && e.hp >= e.hpMax) dano += 6;
-  if (errou && acao === 'forte' && temTalento(e, 'sem_erro_forte')) {
-    errou = false;
-    dano = Math.round((atkTotal(e) + d6() - ini.def) * 1.5);
+  resultado.modClima = modClima;
+  return resultado;
+}
+
+/** ⭐ NOVO: ataque do inimigo com d20 + modificador */
+function ataqueInimigo(e, ini, acao) {
+  const modBase = modificadorATK(ini.atk);
+  const mods = {};
+
+  /* Modificadores de ação */
+  if (acao === 'golpe_terra') mods.multiplicador = 2;
+  else if (acao === 'sopro_fogo') mods.multiplicador = 1.5;
+  else if (acao === 'magia_sombria') mods.multiplicador = 1.8;
+  else if (acao === 'forte') {
+    if (Math.random() < 0.3) return { d20: 0, dano: 0, errou: true, critico: false, falhaCritica: false };
+    mods.multiplicador = 1.5;
   }
 
-  // ⭐ Tempestade: +10% chance de crítico
-  let chanceCritExtra = clima.critBonus || 0;
-  if (!errou && e.emCombate.criticoCarregado) {
-    dano *= temTalento(e, 'assassino') ? 3 : 2;
-    critico = true;
-  } else if (!errou && chanceCritExtra > 0 && Math.random() < chanceCritExtra) {
-    dano = Math.round(dano * 1.5);
-    critico = true;
+  /* Enfurecido */
+  if (ini.enfurecido) mods.extra = (mods.extra || 0) + 2;
+
+  /* Foco acumulado = vantagem */
+  if (ini.inimigoFocando) {
+    mods.vantagem = 5;
+    ini.inimigoFocando = false;
   }
 
-  if (!errou && e.emCombate.inimigoDefendendo) dano = Math.max(1, Math.round(dano * 0.4));
-  if (!errou && e.emCombate.inimigoEsquivando && Math.random() < 0.5) errou = true;
+  /* Rola */
+  let resultado = rolarAtaque(modBase, defTotal(e), mods);
 
-  return { dano: Math.max(1, dano), errou, critico, modClima };
+  /* Defesa do jogador */
+  if (!resultado.errou && e.emCombate.defesaAtiva) {
+    resultado.dano = Math.max(1, Math.round(resultado.dano * 0.4));
+  }
+  /* Esquiva do jogador */
+  if (!resultado.errou && e.emCombate.esquivaAtiva && Math.random() < 0.5) {
+    resultado.errou = true;
+    resultado.dano = 0;
+  }
+  /* Talentos de esquiva */
+  if (temTalento(e, 'evasao') && e.hp / e.hpMax < 0.5 && !resultado.errou && Math.random() < 0.5) {
+    resultado.errou = true;
+    resultado.dano = 0;
+  }
+
+  return resultado;
 }
 
 function escolherAcaoInimigo(e, ini) {
@@ -993,11 +1059,14 @@ function escolherAcaoInimigo(e, ini) {
   return sorteioPonderado(ARQUETIPOS[arq] || ARQUETIPOS.tatico);
 }
 
+/** ⭐ REESCRITA: aplica a ação do inimigo (usa ataqueInimigo com d20) */
 function resolverAcaoInimigo(e, ini, acao, p) {
+  /* ---------- Ações sem ataque ---------- */
   if (acao === 'defender') { ini.inimigoDefendendo = true; p(`🛡 ${ini.nome} assume postura defensiva.`, 'combate'); return; }
   if (acao === 'esquivar') { ini.inimigoEsquivando = true; p(`💨 ${ini.nome} se prepara para esquivar.`, 'combate'); return; }
   if (acao === 'focar') { ini.inimigoFocando = true; p(`🎯 ${ini.nome} concentra-se — o próximo ataque será brutal.`, 'combate'); return; }
 
+  /* ---------- Fuga ---------- */
   if (acao === 'fugir') {
     e.estatisticas.fugasInimigos += 1;
     const xpParcial = Math.round((INIMIGOS[ini.id]?.xp || 0) * 0.3);
@@ -1007,6 +1076,8 @@ function resolverAcaoInimigo(e, ini, acao, p) {
     checarNivel(e, p);
     return;
   }
+
+  /* ---------- Cura sombria ---------- */
   if (acao === 'cura_sombria') {
     const cura = Math.round(ini.hpMax * 0.15);
     const antes = ini.hp;
@@ -1014,11 +1085,15 @@ function resolverAcaoInimigo(e, ini, acao, p) {
     p(`🌑 ${ini.nome} canaliza energia sombria e recupera ${ini.hp - antes} HP. (${ini.hp}/${ini.hpMax})`, 'evento-ruim');
     return;
   }
+
+  /* ---------- Rugido ---------- */
   if (acao === 'rugido') {
     p(`🔊 ${ini.nome} emite um RUGIDO ensurdecedor!`, 'aviso');
     aplicarEfeito(e, 'fraqueza', p, true);
     return;
   }
+
+  /* ---------- Maldição ---------- */
   if (acao === 'maldicao') {
     p(`💀 ${ini.nome} lança uma MALDIÇÃO sobre você!`, 'evento-ruim');
     aplicarEfeito(e, 'fraqueza', p, true);
@@ -1026,45 +1101,26 @@ function resolverAcaoInimigo(e, ini, acao, p) {
     return;
   }
 
-  let danoBase = ini.atk + d6() - defTotal(e);
-  let ignorarMetade = false;
+  /* ---------- Mensagens das ações de dano ---------- */
   let aplicarQueimadura = false;
+  if (acao === 'golpe_terra') p(`⛰ ${ini.nome} usa GOLPE TERRA! O chão racha sob seus pés.`, 'aviso');
+  else if (acao === 'sopro_fogo') { aplicarQueimadura = true; p(`🔥 ${ini.nome} exala um SOPRO DE FOGO!`, 'aviso'); }
+  else if (acao === 'magia_sombria') p(`🌑 ${ini.nome} conjura MAGIA SOMBRIA!`, 'aviso');
 
-  if (acao === 'forte') {
-    if (Math.random() < 0.3) { p(`✔ ${ini.nome} tentou um golpe forte e errou!`, 'esquiva'); ini.inimigoFocando = false; return; }
-    danoBase = Math.round(danoBase * 1.5);
-  } else if (acao === 'golpe_terra') {
-    danoBase = Math.round(danoBase * 2);
-    p(`⛰ ${ini.nome} usa GOLPE TERRA! O chão racha sob seus pés.`, 'aviso');
-  } else if (acao === 'sopro_fogo') {
-    danoBase = Math.round(danoBase * 1.5);
-    aplicarQueimadura = true;
-    p(`🔥 ${ini.nome} exala um SOPRO DE FOGO!`, 'aviso');
-  } else if (acao === 'magia_sombria') {
-    danoBase = Math.round(danoBase * 1.8);
-    ignorarMetade = true;
-    p(`🌑 ${ini.nome} conjura MAGIA SOMBRIA!`, 'aviso');
+  /* ---------- Rola o ataque (d20) ---------- */
+  const rolagem = ataqueInimigo(e, ini, acao);
+  if (rolagem.errou) {
+    p(`✔ ${ini.nome} errou o ataque!`, 'esquiva');
+    return;
   }
 
-  if (ini.inimigoFocando) {
-    danoBase *= 2; ini.inimigoFocando = false;
-    p(`   (o foco acumulado potencializa o golpe!)`, 'combate');
-  }
-  if (ini.enfurecido) danoBase += 2;
-  if (ignorarMetade) danoBase += Math.floor(defTotal(e) * 0.5);
-  if (e.emCombate.defesaAtiva) danoBase = Math.max(1, Math.round(danoBase * 0.4));
-
-  if (temTalento(e, 'evasao') && e.hp / e.hpMax < 0.5 && Math.random() < 0.5) {
-    p(`💫 Você esquivou por pura agilidade!`, 'esquiva'); return;
-  }
-  if (e.emCombate.esquivaAtiva && Math.random() < 0.5) {
-    p(`💨 Você esquivou do ataque!`, 'esquiva'); return;
-  }
-
-  const dano = Math.max(1, danoBase);
-  e.hp -= dano; e.estatisticas.danoRecebido += dano;
+  /* ---------- Aplica dano ---------- */
+  const dano = Math.max(1, rolagem.dano);
+  e.hp -= dano;
+  e.estatisticas.danoRecebido += dano;
   p(`💥 ${ini.nome} causa ${dano} de dano. (${Math.max(0, e.hp)}/${e.hpMax} HP)`, 'dano-recebido');
 
+  /* ---------- Efeitos do inimigo ---------- */
   const ef = EFEITOS_INIMIGOS[ini.id];
   if (ef && Math.random() < ef.chance) {
     const imune = temTalento(e, 'imune_veneno') && (ef.tipo === 'veneno' || ef.tipo === 'sangramento');
@@ -1140,10 +1196,11 @@ function processarCombate(e, cmd, arg, p) {
   let totalDano = 0; let algumCritico = false; let errouNevoeiro = false;
 
   for (let v = 0; v < vezes && ini.hp > 0; v++) {
-    const { dano, errou, critico, motivo } = ataqueJogador(e, ini, cmd);
+    const { dano, errou, critico, motivo, falhaCritica } = ataqueJogador(e, ini, cmd);
     if (errou) {
       if (motivo === 'nevoeiro') { errouNevoeiro = true; break; }
-      p(`✖ Você errou${v > 0 ? ' o segundo golpe' : ''}!`, 'erro');
+      if (falhaCritica) p(`✖ FALHA CRÍTICA! Você tropeça e erra o ataque.`, 'erro');
+      else p(`✖ Você errou${v > 0 ? ' o segundo golpe' : ''}!`, 'erro');
     } else {
       ini.hp -= dano; e.estatisticas.danoTotal += dano;
       totalDano += dano;
@@ -1201,9 +1258,8 @@ function vencer(e, p) {
   if (b.chefe) progredirDiaria(e, 'matar_chefe', 1, p);
   checarNivel(e, p);
   checarConquistas(e, p);
-  verificarProgressoCampanha(e, p);   // ⭐ NOVO
+  verificarProgressoCampanha(e, p);
 
-  /* ⭐ Se matou o chefe final da dungeon, conclui */
   if (role === 'chefe_final') {
     concluirDungeon(e, p);
   } else if (role) {
@@ -1465,7 +1521,6 @@ function comandoClima(e, p) {
   p('', 'espaco');
   p(`🕐 Hora atual: ${formatarHora(e.hora || 12)} · Dia ${e.dia || 1}`, 'tempo-info');
 
-  // Efeitos ativos
   const efeitos = [];
   if (clima.danoFogo) efeitos.push(`Magias de fogo: ${clima.danoFogo > 0 ? '+' : ''}${clima.danoFogo} dano`);
   if (clima.danoGelo) efeitos.push(`Magias de gelo: ${clima.danoGelo > 0 ? '+' : ''}${clima.danoGelo} dano`);
@@ -1493,7 +1548,6 @@ function comandoHora(e, p) {
 /* ================================================================== */
 /* DUNGEON PROCEDURAL                                                  */
 /* ================================================================== */
-
 function iniciarDungeon(e, p) {
   const d = gerarDungeon();
   e.dungeon = d;
@@ -1673,7 +1727,6 @@ function iniciarCombateDungeon(e, id, p, bonus, role) {
 /* ================================================================== */
 /* CAMPANHA NARRATIVA                                                  */
 /* ================================================================== */
-
 function verificarProgressoCampanha(e, p) {
   if (!e.campanha) return;
   for (const cap of CAMPANHA) {
@@ -1768,9 +1821,9 @@ function escolhaFinal(e, opcao, p) {
   const qual = mapa[escolha];
   if (!qual) {
     p('Escolha inválida. Use:', 'erro');
-    p('  escolher matar  — Derrote o Rei Antigo', 'sistema');
-    p('  escolher poupar — Pereoe-o', 'sistema');
-    p('  escolher juntar — Reclame a coroa', 'sistema');
+    p('  escolher_final matar  — Derrote o Rei Antigo', 'sistema');
+    p('  escolher_final poupar — Pereoe-o', 'sistema');
+    p('  escolher_final juntar — Reclame a coroa', 'sistema');
     return;
   }
   e.campanha.final = qual;
@@ -1789,10 +1842,8 @@ function falarComNpc(e, arg, p) {
   const local = MUNDO[e.local];
   if (!local) return;
 
-  // Sistema novo: local.npcs (plural)
   if (local.npcs?.length) {
     if (!arg) {
-      // Lista os NPCs disponíveis
       p('Pessoas aqui:', 'titulo');
       local.npcs.forEach((npc) => p(`  ☻ ${npc.nome}`, 'npc'));
       p('Use "falar <nome>" para conversar.', 'sistema');
@@ -1806,33 +1857,27 @@ function falarComNpc(e, arg, p) {
       local.npcs.forEach((n) => p(`  ☻ ${n.nome}`, 'npc'));
       return;
     }
-
-    // NPC especial: Sábio Aldric — falas dinâmicas
     if (npc.especial === 'aldric') {
       p(`☻ ${npc.nome}`, 'npc');
       p('', 'espaco');
       const falas = falasAldric(e);
       falas.forEach((f) => p(f, 'fala'));
-      // Se completou tudo, mostra a escolha final
       const { indice } = capituloAtual(e);
       if (indice >= CAMPANHA.length && !e.campanha.escolhaFinalFeita) {
         p('', 'espaco');
         p('★ A hora da escolha chegou. Use:', 'campanha-marco');
-        p('   escolher matar  — Você quer destruir o Rei Antigo', 'sistema');
-        p('   escolher poupar — Você quer salvá-lo', 'sistema');
-        p('   escolher juntar — Você quer a coroa', 'sistema');
+        p('   escolher_final matar  — Você quer destruir o Rei Antigo', 'sistema');
+        p('   escolher_final poupar — Você quer salvá-lo', 'sistema');
+        p('   escolher_final juntar — Você quer a coroa', 'sistema');
       }
       return;
     }
-
-    // NPC normal
     p(`☻ ${npc.nome}`, 'npc');
     p('', 'espaco');
     (npc.falas || []).forEach((f) => p(f, 'fala'));
     return;
   }
 
-  // Sistema antigo: local.npc (singular)
   if (!local.npc) { p('Não há ninguém aqui.', 'erro'); return; }
   p(`☻ ${local.npc.nome}`, 'npc');
   p('', 'espaco');
@@ -1897,7 +1942,6 @@ function aoEntrar(e, p) {
   const local = MUNDO[e.local];
   registrarLocal(e, e.local);
 
-  // ⭐ Sorteia clima ao entrar em local novo
   const regiao = local.regiao || 'vila';
   if (!e.climaAtual || e.climaAtual === 'limpo') {
     e.climaAtual = sortearClima(regiao).id;
@@ -1924,6 +1968,9 @@ function aoEntrar(e, p) {
   }
   p('', 'espaco');
   if (local.npc) p(`☻ ${local.npc.nome} está aqui. (use "falar")`, 'npc');
+  if (local.npcs?.length) {
+    local.npcs.forEach((n) => p(`☻ ${n.nome} está aqui. (use "falar")`, 'npc'));
+  }
   if (local.loja) p(`◈ Loja: ${local.loja.nome}. (use "loja")`, 'loja-info');
   const saidas = Object.entries(local.saidas || {}).map(([d, dst]) => `${d} → ${MUNDO[dst].nome}`).join(' · ');
   if (saidas) p(`Saídas: ${saidas}`, 'saidas');
@@ -1939,7 +1986,6 @@ function aoEntrar(e, p) {
   talvezEvento(e, local, p);
   if (e.hp <= 0) { morrer(e, p); return; }
   if (local.inimigos?.length && !e.emCombate) {
-    // ⭐ Chance de encontro considera período
     const chance = (local.chanceEncontro ?? 0.6) + (periodo.encontroBonus || 0);
     if (Math.random() < chance) {
       const id = local.inimigos[Math.floor(Math.random() * local.inimigos.length)];
@@ -2014,15 +2060,12 @@ export function processar(estadoAnterior, entradaBruta) {
   const cmd = normalizar(partes[0]);
   const arg = partes.slice(1).join(' ').trim();
 
-  // ⭐ Atualiza missões diárias ao entrar (sorteia novas se virou o dia)
   atualizarDiarias(e, p);
-  
-  /* ⭐ Prólogo automático no primeiro comando */
+
   if (!e.campanha?.prologoVisto) {
     comandoPrologo(e, p);
   }
 
-  /* ⭐ Bloqueia comandos fora de contexto quando está na dungeon */
   if (e.dungeon) {
     const PROIBIDOS_DUNGEON = ['ir', 'andar', 'pegar', 'falar', 'loja', 'shop', 'comprar', 'buy', 'vender', 'sell', 'treinar', 'lutar', 'descansar', 'dormir'];
     if (PROIBIDOS_DUNGEON.includes(cmd)) {
@@ -2070,7 +2113,6 @@ export function processar(estadoAnterior, entradaBruta) {
       const nv = dl.nivelMinimo || 1;
       if (e.nivel < nv) { p(`🔒 ${dl.nome} exige nível ${nv}+.`, 'erro'); break; }
       e.local = dest;
-      // ⭐ Sorteia clima da nova região
       e.climaAtual = sortearClima(dl.regiao || 'vila').id;
       progredirDiaria(e, 'visitar', 1, p);
       aoEntrar(e, p);
@@ -2086,35 +2128,24 @@ export function processar(estadoAnterior, entradaBruta) {
       checarConquistas(e, p);
       break;
     }
-        /* ========================= INVENTÁRIO ========================= */
     case 'inventario': case 'inv': case 'i': {
       if (!e.inventario.length) { p('Mochila vazia.', 'sistema'); break; }
-
-      /* ---------- Parseia filtros e ordenação ---------- */
       const palavras = arg.split(/\s+/).filter(Boolean).map(normalizar);
       const filtrosAplicados = [];
       let ordenacao = null;
-
-      // Cada palavra pode ser: filtro OU ordenação
       for (const w of palavras) {
         if (['preco', 'nome', 'raridade', 'tipo', 'qtd'].includes(w)) {
           ordenacao = w;
           continue;
         }
         const filtro = FILTROS_INVENTARIO[w];
-        if (filtro) {
-          filtrosAplicados.push({ nome: w, fn: filtro.fn });
-        }
+        if (filtro) filtrosAplicados.push({ nome: w, fn: filtro.fn });
       }
-
-      // Aplica filtros
       let lista = e.inventario.filter((it) => {
         const d = ITENS[it.id];
         if (!d) return false;
         return filtrosAplicados.every((f) => f.fn(d, it.id, e));
       });
-
-      // Aplica ordenação
       if (ordenacao) {
         const ORD = {
           preco: (a, b) => (ITENS[b.id]?.preco || 0) - (ITENS[a.id]?.preco || 0),
@@ -2130,8 +2161,6 @@ export function processar(estadoAnterior, entradaBruta) {
         };
         lista = [...lista].sort(ORD[ordenacao]);
       }
-
-      /* ---------- Cabeçalho ---------- */
       if (filtrosAplicados.length || ordenacao) {
         const tags = [];
         filtrosAplicados.forEach((f) => tags.push(FILTROS_INVENTARIO[f.nome].label));
@@ -2140,8 +2169,6 @@ export function processar(estadoAnterior, entradaBruta) {
       } else {
         p(`◆ Inventário (${e.inventario.length} tipo${e.inventario.length > 1 ? 's' : ''})`, 'titulo');
       }
-
-      /* ---------- Sem resultados ---------- */
       if (!lista.length) {
         p('', 'espaco');
         if (filtrosAplicados.length) {
@@ -2152,8 +2179,6 @@ export function processar(estadoAnterior, entradaBruta) {
         }
         break;
       }
-
-      /* ---------- Lista ---------- */
       p('', 'espaco');
       lista.forEach((it) => {
         const idxOriginal = e.inventario.findIndex((x) => x.id === it.id);
@@ -2172,14 +2197,10 @@ export function processar(estadoAnterior, entradaBruta) {
         else p(`     ${d.preco}◈`, 'item-preco');
         p('', 'separador');
       });
-
-      /* ---------- Rodapé com resumo ---------- */
       const totalTipos = lista.length;
       const totalUnidades = lista.reduce((acc, it) => acc + it.qtd, 0);
       const valorTotal = lista.reduce((acc, it) => acc + (ITENS[it.id]?.preco || 0) * it.qtd, 0);
       p(`Total: ${totalTipos} tipo${totalTipos > 1 ? 's' : ''} · ${totalUnidades} unidade${totalUnidades > 1 ? 's' : ''} · ${valorTotal}◈ em valor`, 'stats');
-
-      /* ---------- Dica de filtros ---------- */
       if (!filtrosAplicados.length && !ordenacao) {
         p('', 'espaco');
         p('💡 Filtros: inventario arma · armadura · consumivel · material · raro · equipado', 'sistema');
@@ -2230,61 +2251,39 @@ export function processar(estadoAnterior, entradaBruta) {
     }
     case 'descansar': case 'dormir': {
       if (e.emCombate) { p('Em combate!', 'erro'); break; }
-
-      /* ---------- Analisa o local ---------- */
       const temLoja = !!local.loja;
-      const temNpc = !!local.npc;
-      const ehCivilizado = temLoja || temNpc || local.arena;
       const ehSelvagem = !!(local.inimigos?.length || local.chefe);
       const chanceEncontroBaixa = (local.chanceEncontro ?? 1) < 0.5;
-      const arriscado = ehSelvagem && chanceEncontroBaixa; // local semi-selvagem
+      const arriscado = ehSelvagem && chanceEncontroBaixa;
 
-      /* ---------- Local selvagem puro: bloqueia ---------- */
       if (ehSelvagem && !chanceEncontroBaixa) {
         p('🛑 Este lugar é perigoso demais para descansar.', 'erro');
         break;
       }
-
-      /* ---------- Cooldown de 1 hora ---------- */
       const tempoAtual = ((e.dia || 1) - 1) * 24 + (e.hora || 6);
       if (e.ultimoDescanso !== -999 && (tempoAtual - e.ultimoDescanso) < 1) {
         const minFaltando = 1 - (tempoAtual - e.ultimoDescanso);
         p(`⏳ Você acabou de descansar. Espere ${minFaltando}h antes de tentar de novo.`, 'erro');
         break;
       }
-
-      /* ---------- Custo (só em local com loja) ---------- */
       const custo = temLoja ? 5 : 0;
       if (custo > 0 && e.moedas < custo) {
         p(`💰 Você precisa de ${custo}◈ para descansar aqui. Você tem ${e.moedas}◈.`, 'erro');
         break;
       }
-
-      /* ---------- Define duração e cura ---------- */
       const periodo = calcularPeriodo(e.hora || 6);
       let horas, curaPct, descricao;
-
       if (arriscado) {
-        horas = 3;
-        curaPct = 0.5;
-        descricao = '⚠ Você faz um descanso curto e arriscado...';
+        horas = 3; curaPct = 0.5; descricao = '⚠ Você faz um descanso curto e arriscado...';
       } else if (periodo.id === 'noite' || periodo.id === 'anoitecer' || periodo.id === 'madrugada') {
-        horas = 6;
-        curaPct = 1.0;
-        descricao = '🌙 Você dorme a noite toda em segurança...';
+        horas = 6; curaPct = 1.0; descricao = '🌙 Você dorme a noite toda em segurança...';
       } else {
-        horas = 3;
-        curaPct = 0.5;
-        descricao = '☀ Você faz uma soneca curta...';
+        horas = 3; curaPct = 0.5; descricao = '☀ Você faz uma soneca curta...';
       }
-
-      /* ---------- Aplica custo ---------- */
       if (custo > 0) {
         e.moedas -= custo;
         p(`💰 Pagou ${custo}◈ pelo descanso. (restam ${e.moedas}◈)`, 'compra');
       }
-
-      /* ---------- Aplica descanso ---------- */
       p(descricao, 'cura');
       const hpAntes = e.hp, mpAntes = e.mana;
       const hpGanho = Math.round((e.hpMax - e.hp) * curaPct);
@@ -2293,14 +2292,8 @@ export function processar(estadoAnterior, entradaBruta) {
       e.mana = Math.min(e.manaMax, e.mana + mpGanho);
       e.efeitos = [];
       p(`   HP ${hpAntes}→${e.hp} | MP ${mpAntes}→${e.mana}`, 'cura');
-
-      /* ---------- Avança o tempo ---------- */
       for (let i = 0; i < horas; i++) avancarTempo(e, p, true);
-
-      /* ---------- Marca o horário (cooldown) ---------- */
       e.ultimoDescanso = ((e.dia || 1) - 1) * 24 + (e.hora || 6);
-
-      /* ---------- Risco em local arriscado ---------- */
       if (arriscado && Math.random() < 0.5) {
         p('⚠ Você é surpreendido durante o descanso!', 'aviso');
         const id = local.inimigos[Math.floor(Math.random() * local.inimigos.length)];
@@ -2351,7 +2344,6 @@ export function processar(estadoAnterior, entradaBruta) {
     case 'reivindicar': case 'claim':
       reivindicarRecompensa(e, arg, p);
       break;
-    /* ⭐ Comandos da dungeon */
     case 'entrar': {
       if (e.dungeon) { p('Você já está na dungeon.', 'erro'); break; }
       if (!local.portal) { p('Não há portal aqui.', 'erro'); break; }
@@ -2366,7 +2358,6 @@ export function processar(estadoAnterior, entradaBruta) {
     case 'sair_dungeon': case 'leave_dungeon':
       sairDungeon(e, p);
       break;
-    /* ⭐ Campanha narrativa */
     case 'campanha': case 'campaign':
       comandoCampanha(e, p);
       break;
@@ -2474,6 +2465,8 @@ export function processar(estadoAnterior, entradaBruta) {
       const c = CLASSES[e.classe] || CLASSES.guerreiro;
       const clima = getClima(e.climaAtual || 'limpo');
       const periodo = calcularPeriodo(e.hora || 12);
+      const mod = modificadorATK(atkTotal(e));
+      const sinal = mod >= 0 ? '+' : '';
       p(`◆ ${e.nome}${e.titulo ? ` — "${e.titulo}"` : ''}`, 'local');
       p(`${r.emoji} ${r.nome} · ${c.emoji} ${c.nome} · Nv ${e.nivel}`, 'sistema');
       p(`${clima.emoji} ${clima.nome} · ${periodo.emoji} ${periodo.nome} · 🕐 ${formatarHora(e.hora || 12)}`, 'tempo-info');
@@ -2482,6 +2475,7 @@ export function processar(estadoAnterior, entradaBruta) {
       p(`HP ${e.hp}/${e.hpMax}`, 'hp-info');
       if (e.manaMax > 0) p(`MP ${e.mana}/${e.manaMax}`, 'mana');
       p(`ATK ${atkTotal(e)} · DEF ${defTotal(e)}`, 'stats');
+      p(`Modificador de ataque: ${sinal}${mod} (d20${sinal}${mod})`, 'stats');
       p(`Moedas: ${e.moedas} · Local: ${MUNDO[e.local].nome}`, 'item-info');
       p(`Conquistas: ${e.conquistasDesbloqueadas.length}/${CONQUISTAS.length}`, 'conquista-info');
       if (e.pontosTalento > 0) p(`★ Você tem ${e.pontosTalento} ponto(s) de talento. Use "talentos".`, 'talento-ponto');
@@ -2634,7 +2628,6 @@ export function processar(estadoAnterior, entradaBruta) {
       p(`Comando desconhecido: "${partes[0]}".`, 'erro');
   }
 
-  // ⭐ Avança o tempo a cada comando significativo
   avancarTempo(e, p);
 
   e.atualizadoEm = Date.now();

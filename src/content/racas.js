@@ -12,7 +12,7 @@ export const RACAS = {
     nome: 'Elfo',
     emoji: '🧝',
     desc: 'Ágil e ligado à magia. Fraco fisicamente, forte no arcano.',
-    bonus: { hpMax: 0, atk: 3, def: 1, manaMax: 15 },
+    bonus: { hpMax: 0, atk: 2, def: 1, manaMax: 15 },
   },
   anao: {
     id: 'anao',
@@ -26,7 +26,7 @@ export const RACAS = {
     nome: 'Orc',
     emoji: '👹',
     desc: 'Brutal e selvagem. Força bruta acima de tudo.',
-    bonus: { hpMax: 8, atk: 5, def: 0, manaMax: -5 },
+    bonus: { hpMax: 8, atk: 4, def: 0, manaMax: -5 },
   },
   halfling: {
     id: 'halfling',

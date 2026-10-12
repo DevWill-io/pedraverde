@@ -5,19 +5,19 @@ export const INIMIGOS = {
   /* ============================================================ */
   rato: {
     id: 'rato', nome: 'Rato Gigante',
-    hp: 14, atk: 4, def: 1, xp: 6,
+    hp: 22, atk: 8, def: 2, xp: 10,
     loot: ['pao'], arquetipo: 'bestial',
     desc: 'Do tamanho de um cão. Sujo e faminto.',
   },
   lobo: {
     id: 'lobo', nome: 'Lobo Selvagem',
-    hp: 22, atk: 6, def: 2, xp: 12,
+    hp: 35, atk: 10, def: 3, xp: 18,
     loot: ['pocao'], arquetipo: 'agressivo',
     desc: 'Pelo eriçado e presas amareladas.',
   },
   goblin: {
     id: 'goblin', nome: 'Goblin',
-    hp: 26, atk: 7, def: 3, xp: 16,
+    hp: 40, atk: 12, def: 3, xp: 25,
     loot: ['pocao'], arquetipo: 'tatico',
     desc: 'Pequeno, cruel e barulhento.',
   },
@@ -27,19 +27,19 @@ export const INIMIGOS = {
   /* ============================================================ */
   aranha: {
     id: 'aranha', nome: 'Aranha Venenosa',
-    hp: 20, atk: 9, def: 2, xp: 18,
+    hp: 32, atk: 14, def: 2, xp: 28,
     loot: ['pocao', 'antidoto'], arquetipo: 'bestial',
     desc: 'Pernas peludas e presas gotejantes.',
   },
   esqueleto: {
     id: 'esqueleto', nome: 'Esqueleto Guerreiro',
-    hp: 34, atk: 10, def: 5, xp: 28,
+    hp: 55, atk: 16, def: 6, xp: 45,
     loot: ['elixir_maior'], arquetipo: 'tatico',
     desc: 'Ossos antigos empunhando uma espada lascada.',
   },
   bandido: {
     id: 'bandido', nome: 'Bandido',
-    hp: 38, atk: 11, def: 5, xp: 35,
+    hp: 60, atk: 18, def: 6, xp: 55,
     loot: ['pocao', 'adaga'], arquetipo: 'agressivo',
     desc: 'Olhar frio e uma adaga na mão.',
   },
@@ -49,77 +49,77 @@ export const INIMIGOS = {
   /* ============================================================ */
   cultista: {
     id: 'cultista', nome: 'Cultista',
-    hp: 42, atk: 13, def: 6, xp: 48,
+    hp: 65, atk: 20, def: 6, xp: 70,
     loot: ['pocao', 'elixir_maior'], arquetipo: 'magico',
     desc: 'Capuz preto, adaga ritual.',
   },
   escorpiao: {
     id: 'escorpiao', nome: 'Escorpião Gigante',
-    hp: 40, atk: 15, def: 8, xp: 55,
+    hp: 60, atk: 22, def: 7, xp: 85,
     loot: ['antidoto'], arquetipo: 'bestial',
     desc: 'Ferrão brilhante.',
   },
   abutre: {
     id: 'abutre', nome: 'Abutre Carniceiro',
-    hp: 32, atk: 13, def: 5, xp: 45,
+    hp: 50, atk: 20, def: 5, xp: 65,
     loot: ['pocao'], arquetipo: 'agressivo',
     desc: 'Voa em círculos.',
   },
   saqueador: {
     id: 'saqueador', nome: 'Saqueador',
-    hp: 50, atk: 16, def: 8, xp: 65,
+    hp: 80, atk: 24, def: 8, xp: 100,
     loot: ['elixir_maior', 'ferro'], arquetipo: 'tatico',
     desc: 'Vive de restos.',
   },
   serpente: {
     id: 'serpente', nome: 'Serpente do Oásis',
-    hp: 44, atk: 18, def: 6, xp: 72,
+    hp: 70, atk: 26, def: 7, xp: 110,
     loot: ['antidoto', 'pocao'], arquetipo: 'bestial',
     desc: 'Veneno paralisante.',
   },
   pirata: {
     id: 'pirata', nome: 'Pirata',
-    hp: 58, atk: 19, def: 9, xp: 88,
+    hp: 95, atk: 28, def: 9, xp: 130,
     loot: ['espada_curta', 'pocao'], arquetipo: 'agressivo',
     desc: 'Espada e ódio.',
   },
   lobo_glacial: {
     id: 'lobo_glacial', nome: 'Lobo Glacial',
-    hp: 54, atk: 20, def: 8, xp: 95,
+    hp: 90, atk: 30, def: 8, xp: 145,
     loot: ['pocao'], arquetipo: 'agressivo',
     desc: 'Pelo branco, olhos azuis.',
   },
   golem_gelo: {
     id: 'golem_gelo', nome: 'Golem de Gelo',
-    hp: 80, atk: 18, def: 15, xp: 130,
+    hp: 130, atk: 28, def: 12, xp: 190,
     loot: ['cristal'], arquetipo: 'defensivo',
     desc: 'Gigante de gelo vivo.',
   },
   guarda_real: {
     id: 'guarda_real', nome: 'Guarda Real',
-    hp: 72, atk: 22, def: 13, xp: 145,
+    hp: 120, atk: 32, def: 11, xp: 210,
     loot: ['elixir_maior', 'ferro'], arquetipo: 'defensivo',
     desc: 'Armadura negra, lança longa.',
   },
   cavaleiro_negro: {
     id: 'cavaleiro_negro', nome: 'Cavaleiro Negro',
-    hp: 95, atk: 25, def: 18, xp: 210,
+    hp: 160, atk: 36, def: 13, xp: 300,
     loot: ['elixir_maior', 'gema_safira'], arquetipo: 'tatico',
     desc: 'Armadura completa preta.',
   },
   mago_negro: {
     id: 'mago_negro', nome: 'Mago Negro',
-    hp: 70, atk: 28, def: 9, xp: 200,
+    hp: 110, atk: 40, def: 8, xp: 290,
     loot: ['cristal', 'pocao'], arquetipo: 'magico',
     desc: 'Cajado retorcido, olhar vazio.',
   },
 
   /* ============================================================ */
-  /* CHEFES — cada um com padrão único                              */
+  /* CHEFES                                                         */
   /* ============================================================ */
   troll: {
     id: 'troll', nome: 'Troll das Cavernas',
-    hp: 80, atk: 14, def: 7, xp: 80,
+    hp: 180, atk: 18, def: 6, xp: 200,
     loot: ['pocao', 'pocao', 'escudo_madeira'],
     chefe: true, arquetipo: 'agressivo',
     padrao: ['atacar', 'atacar', 'golpe_terra'],
@@ -127,7 +127,7 @@ export const INIMIGOS = {
   },
   ogro: {
     id: 'ogro', nome: 'Ogro das Ruínas',
-    hp: 120, atk: 17, def: 11, xp: 160,
+    hp: 240, atk: 22, def: 8, xp: 320,
     loot: ['machado_batalha', 'elixir_maior'],
     chefe: true, arquetipo: 'agressivo',
     padrao: ['atacar', 'forte', 'atacar', 'defender'],
@@ -135,7 +135,7 @@ export const INIMIGOS = {
   },
   bruxa: {
     id: 'bruxa', nome: 'Bruxa do Pântano',
-    hp: 110, atk: 20, def: 10, xp: 190,
+    hp: 220, atk: 26, def: 7, xp: 400,
     loot: ['panaceia', 'cristal', 'amuleto_sorte'],
     chefe: true, arquetipo: 'magico',
     padrao: ['magia_sombria', 'atacar', 'cura_sombria', 'atacar'],
@@ -143,7 +143,7 @@ export const INIMIGOS = {
   },
   rei_bandido: {
     id: 'rei_bandido', nome: 'Rei Bandido',
-    hp: 160, atk: 23, def: 15, xp: 320,
+    hp: 320, atk: 30, def: 10, xp: 600,
     loot: ['espada_bastarda', 'elixir_maior'],
     chefe: true, arquetipo: 'agressivo',
     padrao: ['atacar', 'forte', 'atacar', 'defender'],
@@ -151,7 +151,7 @@ export const INIMIGOS = {
   },
   hidra: {
     id: 'hidra', nome: 'Hidra do Pântano',
-    hp: 200, atk: 26, def: 14, xp: 400,
+    hp: 400, atk: 34, def: 11, xp: 750,
     loot: ['panaceia', 'cota_malha'],
     chefe: true, arquetipo: 'agressivo',
     padrao: ['atacar', 'atacar', 'forte', 'golpe_terra'],
@@ -159,7 +159,7 @@ export const INIMIGOS = {
   },
   bispo_sombrio: {
     id: 'bispo_sombrio', nome: 'Bispo Sombrio',
-    hp: 220, atk: 29, def: 17, xp: 520,
+    hp: 480, atk: 38, def: 12, xp: 950,
     loot: ['cajado_arcano', 'gema_rubi'],
     chefe: true, arquetipo: 'magico',
     padrao: ['magia_sombria', 'maldicao', 'atacar', 'cura_sombria'],
@@ -167,7 +167,7 @@ export const INIMIGOS = {
   },
   mumia_rei: {
     id: 'mumia_rei', nome: 'Rei Mumificado',
-    hp: 260, atk: 32, def: 20, xp: 640,
+    hp: 560, atk: 42, def: 14, xp: 1200,
     loot: ['coroa_rei', 'gema_rubi'],
     chefe: true, arquetipo: 'tatico',
     padrao: ['maldicao', 'atacar', 'atacar', 'rugido'],
@@ -175,7 +175,7 @@ export const INIMIGOS = {
   },
   esfinge: {
     id: 'esfinge', nome: 'Esfinge',
-    hp: 320, atk: 36, def: 23, xp: 880,
+    hp: 650, atk: 46, def: 16, xp: 1500,
     loot: ['anel_titan', 'gema_safira'],
     chefe: true, arquetipo: 'tatico',
     padrao: ['atacar', 'forte', 'magia_sombria', 'defender'],
@@ -183,7 +183,7 @@ export const INIMIGOS = {
   },
   capitao_pirata: {
     id: 'capitao_pirata', nome: 'Capitão Pirata',
-    hp: 360, atk: 39, def: 25, xp: 1120,
+    hp: 750, atk: 50, def: 18, xp: 1900,
     loot: ['katana', 'capa_invisibilidade'],
     chefe: true, arquetipo: 'agressivo',
     padrao: ['atacar', 'forte', 'atacar', 'atacar'],
@@ -191,7 +191,7 @@ export const INIMIGOS = {
   },
   gigante_gelo: {
     id: 'gigante_gelo', nome: 'Gigante de Gelo',
-    hp: 400, atk: 42, def: 28, xp: 1360,
+    hp: 850, atk: 56, def: 20, xp: 2300,
     loot: ['armadura_placas', 'gema_safira'],
     chefe: true, arquetipo: 'agressivo',
     padrao: ['atacar', 'atacar', 'golpe_terra', 'defender'],
@@ -199,7 +199,7 @@ export const INIMIGOS = {
   },
   chefe_gigante: {
     id: 'chefe_gigante', nome: 'Rei dos Gigantes',
-    hp: 480, atk: 48, def: 32, xp: 1760,
+    hp: 1000, atk: 62, def: 22, xp: 2900,
     loot: ['montante', 'anel_titan'],
     chefe: true, arquetipo: 'agressivo',
     padrao: ['atacar', 'rugido', 'forte', 'golpe_terra'],
@@ -207,7 +207,7 @@ export const INIMIGOS = {
   },
   dragao_anciao: {
     id: 'dragao_anciao', nome: 'Dragão Ancião',
-    hp: 700, atk: 60, def: 40, xp: 2880,
+    hp: 1400, atk: 76, def: 26, xp: 4500,
     loot: ['lamina_alvorada', 'armadura_dragao'],
     chefe: true, arquetipo: 'magico',
     padrao: ['atacar', 'sopro_fogo', 'atacar', 'rugido'],
@@ -215,7 +215,7 @@ export const INIMIGOS = {
   },
   rei_antigo: {
     id: 'rei_antigo', nome: 'Rei Antigo',
-    hp: 1000, atk: 75, def: 48, xp: 4800,
+    hp: 2000, atk: 95, def: 30, xp: 8000,
     loot: ['egide', 'manto_real', 'coroa_rei'],
     chefe: true, arquetipo: 'tatico',
     padrao: ['atacar', 'magia_sombria', 'golpe_terra', 'cura_sombria', 'rugido'],
