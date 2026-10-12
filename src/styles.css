@@ -2220,3 +2220,51 @@ button:not(:disabled):active {
 .log .texto {
   cursor: text;
 }
+/* ================================================================== */
+/* CORREÇÃO — cursor no desktop (PC)                                   */
+/* ================================================================== */
+
+/* O log ainda permite selecionar, mas mostra cursor padrão em vez de "text" */
+.log,
+.log .linha,
+.log .texto {
+  cursor: default;
+}
+
+/* Só quando o usuário começa a arrastar para selecionar,
+   o navegador muda automaticamente para cursor de texto.
+   Isso é comportamento padrão — não precisa forçar. */
+
+/* Exceção: se quiser permitir seleção bonita de código, deixa só o texto selecionável */
+.log .texto::selection,
+.log .texto::-moz-selection {
+  background: rgba(143, 211, 255, 0.3);
+  color: var(--texto);
+}
+
+/* No PC, inputs continuam com cursor de texto (é onde faz sentido) */
+input,
+textarea {
+  cursor: text;
+}
+
+/* Botões e chips: cursor pointer em qualquer plataforma */
+button,
+.aba,
+.chip,
+.chip-magia-op,
+.chip-combate,
+.chip-arena,
+.card-opcao,
+.card-slot,
+.tut-tab {
+  cursor: pointer;
+}
+
+/* Áreas não interativas: cursor default */
+.modal-header,
+.modal-corpo,
+.tutorial-conteudo,
+.tut-secao {
+  cursor: default;
+}
