@@ -87,7 +87,8 @@ export function novoJogo(opcoes = {}) {
     hora: 6,           // começa ao meio-dia
     dia: 1,             // dia 1
     climaAtual: 'limpo',
-    contadorTempo: 0,   // quantos comandos desde o último avanço
+    contadorTempo: 0,  // quantos comandos desde o último avanço
+    ultimoDescanso: -999, // hora absoluta do último descanso (cooldown)
     inventario: [{ id: 'pocao', qtd: 2 }, { id: 'pao', qtd: 2 }],
     equipado: { arma: null, escudo: null, elmo: null, armadura: null, botas: null, anel: null, colar: null, capa: null },
     encantamentos: {},
@@ -238,6 +239,7 @@ function normalizarEstado(e) {
   if (typeof e.dia !== 'number') e.dia = 1;
   if (!e.climaAtual) e.climaAtual = 'limpo';
   if (typeof e.contadorTempo !== 'number') e.contadorTempo = 0;
+  if (typeof e.ultimoDescanso !== 'number') e.ultimoDescanso = -999;
   if (!e.estatisticas) {
     e.estatisticas = { locaisVisitados: [e.local || 'pedraverde'], inimigosMortos: {}, mortes: 0, danoTotal: 0, danoRecebido: 0, magiasLancadas: 0, eventosVividos: 0, turnosDeCombate: 0, vitoriasArena: 0, nocauteArena: 0, itensCriados: 0, itensEncantados: 0, fugasInimigos: 0, criadoEm: Date.now() };
   }
@@ -1441,12 +1443,82 @@ export function processar(estadoAnterior, entradaBruta) {
     }
     case 'descansar': case 'dormir': {
       if (e.emCombate) { p('Em combate!', 'erro'); break; }
-      if (local.inimigos?.length || local.chefe) { p('Perigoso.', 'erro'); break; }
-      const h = e.hp, m = e.mana;
-      e.hp = e.hpMax; e.mana = e.manaMax; e.efeitos = [];
-      p(`Descansou. HP ${h}→${e.hp} | MP ${m}→${e.mana}`, 'cura');
-      // Descansar avança 3 horas direto (ignora o contador normal)
-      for (let i = 0; i < 3; i++) avancarTempo(e, p, true);
+
+      /* ---------- Analisa o local ---------- */
+      const temLoja = !!local.loja;
+      const temNpc = !!local.npc;
+      const ehCivilizado = temLoja || temNpc || local.arena;
+      const ehSelvagem = !!(local.inimigos?.length || local.chefe);
+      const chanceEncontroBaixa = (local.chanceEncontro ?? 1) < 0.5;
+      const arriscado = ehSelvagem && chanceEncontroBaixa; // local semi-selvagem
+
+      /* ---------- Local selvagem puro: bloqueia ---------- */
+      if (ehSelvagem && !chanceEncontroBaixa) {
+        p('🛑 Este lugar é perigoso demais para descansar.', 'erro');
+        break;
+      }
+
+      /* ---------- Cooldown de 1 hora ---------- */
+      const tempoAtual = ((e.dia || 1) - 1) * 24 + (e.hora || 6);
+      if (e.ultimoDescanso !== -999 && (tempoAtual - e.ultimoDescanso) < 1) {
+        const minFaltando = 1 - (tempoAtual - e.ultimoDescanso);
+        p(`⏳ Você acabou de descansar. Espere ${minFaltando}h antes de tentar de novo.`, 'erro');
+        break;
+      }
+
+      /* ---------- Custo (só em local com loja) ---------- */
+      const custo = temLoja ? 5 : 0;
+      if (custo > 0 && e.moedas < custo) {
+        p(`💰 Você precisa de ${custo}◈ para descansar aqui. Você tem ${e.moedas}◈.`, 'erro');
+        break;
+      }
+
+      /* ---------- Define duração e cura ---------- */
+      const periodo = calcularPeriodo(e.hora || 6);
+      let horas, curaPct, descricao;
+
+      if (arriscado) {
+        horas = 3;
+        curaPct = 0.5;
+        descricao = '⚠ Você faz um descanso curto e arriscado...';
+      } else if (periodo.id === 'noite' || periodo.id === 'anoitecer' || periodo.id === 'madrugada') {
+        horas = 6;
+        curaPct = 1.0;
+        descricao = '🌙 Você dorme a noite toda em segurança...';
+      } else {
+        horas = 3;
+        curaPct = 0.5;
+        descricao = '☀ Você faz uma soneca curta...';
+      }
+
+      /* ---------- Aplica custo ---------- */
+      if (custo > 0) {
+        e.moedas -= custo;
+        p(`💰 Pagou ${custo}◈ pelo descanso. (restam ${e.moedas}◈)`, 'compra');
+      }
+
+      /* ---------- Aplica descanso ---------- */
+      p(descricao, 'cura');
+      const hpAntes = e.hp, mpAntes = e.mana;
+      const hpGanho = Math.round((e.hpMax - e.hp) * curaPct);
+      const mpGanho = Math.round((e.manaMax - e.mana) * curaPct);
+      e.hp = Math.min(e.hpMax, e.hp + hpGanho);
+      e.mana = Math.min(e.manaMax, e.mana + mpGanho);
+      e.efeitos = [];
+      p(`   HP ${hpAntes}→${e.hp} | MP ${mpAntes}→${e.mana}`, 'cura');
+
+      /* ---------- Avança o tempo ---------- */
+      for (let i = 0; i < horas; i++) avancarTempo(e, p, true);
+
+      /* ---------- Marca o horário (cooldown) ---------- */
+      e.ultimoDescanso = ((e.dia || 1) - 1) * 24 + (e.hora || 6);
+
+      /* ---------- Risco em local arriscado ---------- */
+      if (arriscado && Math.random() < 0.5) {
+        p('⚠ Você é surpreendido durante o descanso!', 'aviso');
+        const id = local.inimigos[Math.floor(Math.random() * local.inimigos.length)];
+        iniciarCombate(e, id, p);
+      }
       break;
     }
     case 'magias': case 'grimorio': {
