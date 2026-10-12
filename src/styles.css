@@ -2268,3 +2268,73 @@ button,
 .tut-secao {
   cursor: default;
 }
+
+/* ================================================================== */
+/* SAVE EXPORT / IMPORT — links de ação no slot                        */
+/* ================================================================== */
+
+.slot-cabecalho {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.slot-acoes {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.link-acao {
+  background: none;
+  border: none;
+  color: var(--azul);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 4px;
+  font-family: inherit;
+  letter-spacing: 0.3px;
+  opacity: 0.75;
+  transition: 0.15s;
+  white-space: nowrap;
+}
+
+.link-acao:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+.link-perigo {
+  background: none;
+  border: none;
+  color: var(--vermelho);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 4px;
+  font-family: inherit;
+  letter-spacing: 0.3px;
+  opacity: 0.65;
+  transition: 0.15s;
+  white-space: nowrap;
+}
+
+.link-perigo:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+/* Mobile: links um pouco menores para caber tudo */
+@media (max-width: 480px) {
+  .link-acao,
+  .link-perigo {
+    font-size: 10px;
+    padding: 2px 2px;
+  }
+  .slot-acoes {
+    gap: 6px;
+  }
+}

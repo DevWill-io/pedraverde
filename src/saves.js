@@ -80,3 +80,69 @@ export async function apagarSlot(uid, slot, usarNuvem = true) {
 }
 
 export const SLOTS = [1, 2, 3];
+
+/* ================================================================== */
+/* EXPORT / IMPORT                                                     */
+/* ================================================================== */
+
+/**
+ * Gera e baixa um arquivo .json com o save.
+ * O nome do arquivo inclui o nome do personagem e nível.
+ */
+export function exportarSave(estado, slot) {
+  if (!estado) throw new Error('Nada para exportar.');
+  const json = JSON.stringify(estado, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+
+  // Nome limpo do arquivo
+  const nomeBruto = `pedraverde-${estado.nome || 'save'}-nv${estado.nivel || 1}-slot${slot}`;
+  const nomeLimpo = nomeBruto
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')       // remove acentos
+    .replace(/[^a-zA-Z0-9\-_]/g, '_')      // troca o resto por _
+    .slice(0, 80);
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${nomeLimpo}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/**
+ * Lê um arquivo .json exportado e devolve o objeto do save.
+ * Valida que parece um save de Pedraverde válido.
+ */
+export function lerArquivoSave(file) {
+  return new Promise((resolve, reject) => {
+    if (!file) { reject(new Error('Nenhum arquivo selecionado.')); return; }
+    if (file.size > 2 * 1024 * 1024) {
+      reject(new Error('Arquivo muito grande (máx 2MB).'));
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const dados = JSON.parse(ev.target.result);
+        if (!dados || typeof dados !== 'object') {
+          reject(new Error('Arquivo inválido.'));
+          return;
+        }
+        // Validação básica: precisa ter os campos essenciais
+        if (!dados.nome || typeof dados.nivel !== 'number') {
+          reject(new Error('Este arquivo não parece um save de Pedraverde.'));
+          return;
+        }
+        resolve(dados);
+      } catch {
+        reject(new Error('O arquivo não é um JSON válido.'));
+      }
+    };
+    reader.onerror = () => reject(new Error('Erro ao ler o arquivo.'));
+    reader.readAsText(file);
+  });
+}
