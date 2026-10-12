@@ -24,7 +24,7 @@ import Config from './components/Config.jsx';
 import Chat from './components/Chat.jsx';
 import Ranking from './components/Ranking.jsx';
 
-const MAX_LOG = 100;
+const MAX_LOG = 25;
 
 const ACOES_COMBATE_RAPIDAS = ['atacar', 'forte', 'rapido', 'defender', 'esquivar', 'focar', 'fugir'];
 
@@ -46,6 +46,8 @@ const PREFIXOS = {
   craft: '⚒', 'receita-ok': ' ', 'receita-bloq': '🔒',
   encantar: '✨', 'encantar-ok': ' ', 'encantar-bloq': '🔒',
   tutorial: '📖',
+  'talento-ponto': '★', 'talento-info': ' ', 'talento-opcao': ' ', 'talento-ok': '★',
+  'talento-bloq': '🔒', 'talento-comando': ' ', 'talento-aprendido': '★',
 };
 
 function lerConfig() {
@@ -317,8 +319,8 @@ function TelaJogo({
   const pctMp = estado.manaMax > 0 ? Math.max(0, Math.min(100, (estado.mana / estado.manaMax) * 100)) : 0;
   const atalhos = useMemo(
     () => idioma === 'en'
-      ? ['look', 'map', 'stats', 'inventory', 'spells', 'quests', 'tutorial', 'help']
-      : ['olhar', 'mapa', 'status', 'inventario', 'magias', 'quests', 'tutorial', 'ajuda'],
+      ? ['look', 'map', 'stats', 'inventory', 'spells', 'talents', 'quests', 'tutorial', 'help']
+      : ['olhar', 'mapa', 'status', 'inventario', 'magias', 'talentos', 'quests', 'tutorial', 'ajuda'],
     [idioma],
   );
 
@@ -330,6 +332,7 @@ function TelaJogo({
   const efeitosAtivos = (estado.efeitos || []).filter((ef) => EFEITOS[ef.tipo]);
   const emArena = local?.arena && !emCombate;
   const encArma = estado.encantamentos?.arma;
+  const pontosTalento = estado.pontosTalento || 0;
 
   return (
     <div className="tela jogo">
@@ -341,6 +344,11 @@ function TelaJogo({
           <span className="tag">ATK {atkTotal(estado)}{encArma && <span className="tag-enc">{ENCANTAMENTOS[encArma].emoji}</span>}</span>
           <span className="tag">DEF {defTotal(estado)}</span>
           <span className="tag moeda">◈ {estado.moedas}</span>
+          {pontosTalento > 0 && (
+            <span className="tag tag-talento" title="Pontos de talento disponíveis">
+              ★ {pontosTalento}
+            </span>
+          )}
           <span className={`tag ${emArena ? 'tag-arena' : 'local'}`}>{emArena ? '⚔ ' : ''}{local?.nome}</span>
         </div>
         <div className="barras">
@@ -433,9 +441,16 @@ function TelaJogo({
             <button className="chip" onClick={() => clicarComando('mapa')}>{idioma === 'en' ? 'map' : 'mapa'}</button>
           </>
         ) : (
-          atalhos.map((a) => (
-            <button key={a} className="chip" onClick={() => setEntrada(a)}>{a}</button>
-          ))
+          <>
+            {atalhos.map((a) => (
+              <button key={a} className="chip" onClick={() => setEntrada(a)}>{a}</button>
+            ))}
+            {pontosTalento > 0 && (
+              <button className="chip chip-talento" onClick={() => clicarComando('talentos')}>
+                ★ talentos
+              </button>
+            )}
+          </>
         )}
         <button className="chip chip-limpar" onClick={limparLog} title="Limpar log">
           {idioma === 'en' ? 'clear' : 'limpar'}
@@ -527,15 +542,12 @@ export default function App() {
   useEffect(() => { gravarIdioma(idioma); }, [idioma]);
   useEffect(() => { ouvirPromptInstalar(setTemPromptInstalar); }, []);
 
-  /* Liga/desliga música de fundo */
   useEffect(() => {
     if (musica) {
       const tentarIniciar = () => {
         if (!musicaEstaAtiva()) iniciarMusica();
       };
-      // Tenta logo (funciona se o contexto já foi destravado)
       tentarIniciar();
-      // Se o navegador bloquear (contexto suspenso), tenta no primeiro clique
       window.addEventListener('click', tentarIniciar, { once: true });
       window.addEventListener('touchstart', tentarIniciar, { once: true });
       return () => {

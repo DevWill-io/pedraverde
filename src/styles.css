@@ -2338,3 +2338,85 @@ button,
     gap: 6px;
   }
 }
+
+/* ================================================================== */
+/* TALENTOS                                                            */
+/* ================================================================== */
+
+/* Linha de "você ganhou ponto de talento" no log */
+.linha['talento-ponto'] .prefixo { color: #ffd166; }
+.linha['talento-ponto'] .texto {
+  color: #ffd166;
+  font-weight: bold;
+  text-shadow: 0 0 8px rgba(255, 209, 102, 0.5);
+  animation: pulsar 1.4s infinite;
+}
+
+/* Informações gerais */
+.linha['talento-info'] .texto { color: var(--texto-fraco); }
+
+/* Opção de talento (quando listada) */
+.linha['talento-opcao'] .texto {
+  color: var(--azul);
+  font-weight: bold;
+  letter-spacing: 0.3px;
+}
+
+/* Talento já aprendido */
+.linha['talento-ok'] .texto {
+  color: var(--verde);
+  font-weight: bold;
+}
+
+/* Bloqueado por nível */
+.linha['talento-bloq'] .texto {
+  color: var(--texto-fraco);
+  opacity: 0.65;
+}
+
+/* Comando de escolha sugerido */
+.linha['talento-comando'] .texto {
+  color: var(--amarelo);
+  font-style: italic;
+}
+
+/* Talento recém-aprendido */
+.linha['talento-aprendido'] .prefixo { color: #ffd166; }
+.linha['talento-aprendido'] .texto {
+  color: #ffd166;
+  font-weight: bold;
+  text-shadow: 0 0 10px rgba(255, 209, 102, 0.6);
+  animation: brilhar 1.5s ease;
+}
+
+/* Tag de pontos no header */
+.tag-talento {
+  color: #ffd166;
+  font-weight: bold;
+  background: rgba(255, 209, 102, 0.12);
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 209, 102, 0.5);
+  animation: pulsar 1.6s infinite;
+}
+
+/* Chip de talentos na barra de atalhos */
+.chip-talento {
+  border-color: rgba(255, 209, 102, 0.6);
+  color: #ffd166;
+  background: rgba(255, 209, 102, 0.1);
+  font-weight: bold;
+  animation: pulsar 1.6s infinite;
+}
+
+.chip-talento:hover {
+  background: rgba(255, 209, 102, 0.2);
+  border-color: #ffd166;
+  color: #ffd166;
+}
+
+/* Bônus de talento no log */
+.linha['item-bonus'] .texto {
+  color: var(--verde);
+  font-weight: bold;
+}
