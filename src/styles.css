@@ -2045,3 +2045,178 @@ html[data-tema="claro"] .status-bar { background: var(--bg-2); }
     font-size: 12px;
   }
 }
+
+/* ================================================================== */
+/* CORREÇÕES DE UX — cursor, focus e tap-highlight                     */
+/* ================================================================== */
+
+/* 1. Tira o cursor de texto "|" quando clica em qualquer coisa que não seja input */
+* {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+/* Mas permite selecionar o texto do log e dos inputs */
+.log,
+.log *,
+input,
+textarea {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  user-select: text;
+}
+
+/* 2. Remove a barra azul de seleção ao clicar em qualquer botão ou div não-texto */
+button,
+.btn-opt,
+.chip,
+.chip-magia-op,
+.chip-combate,
+.chip-arena,
+.aba,
+.card-opcao,
+.card-slot,
+.barra-botoes button,
+.modal,
+.modal *:not(.texto),
+.tut-tab {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 3. Remove o "focus ring" azul padrão do navegador */
+button:focus,
+button:focus-visible,
+.chip:focus,
+.aba:focus,
+.card-opcao:focus {
+  outline: none;
+}
+
+/* Mantém um focus visível para acessibilidade só no teclado (Tab) */
+button:focus-visible {
+  outline: 2px solid var(--azul);
+  outline-offset: 2px;
+}
+
+/* 4. Corrige o fundo azulado ao clicar em elementos clicáveis */
+button,
+.aba,
+.card-opcao,
+.card-slot,
+.chip,
+.chip-magia-op,
+.btn-opt {
+  -webkit-appearance: none;
+  appearance: none;
+  background-clip: padding-box;
+}
+
+/* Impede o Android/Chrome de aplicar overlay azul em links/botões */
+a,
+button,
+[role="button"] {
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+}
+
+/* 5. Remove o cursor de texto no container do log quando clica fora do texto */
+.log {
+  cursor: default;
+}
+
+/* 6. O input principal continua selecionável e com cursor de texto */
+input {
+  cursor: text;
+  caret-color: var(--azul);
+}
+
+/* 7. Botões ficam com cursor "pointer" para indicar clicabilidade */
+button,
+.aba,
+.chip,
+.chip-magia-op,
+.card-opcao,
+.card-slot {
+  cursor: pointer;
+}
+
+/* 8. Botões desabilitados: cursor correto */
+button:disabled {
+  cursor: not-allowed;
+}
+
+/* 9. Ao segurar/clicar em botões, sem seleção nem azul */
+button:active,
+.chip:active,
+.aba:active,
+.card-opcao:active {
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+/* ================================================================== */
+/* FEEDBACK DE CLIQUE (substitui o azul padrão)                        */
+/* ================================================================== */
+
+/* Botões normais: leve escurecimento ao clicar */
+button:not(:disabled):active {
+  transform: scale(0.98);
+  transition: transform 0.05s ease;
+}
+
+/* Chips de atalho: leve destaque ao clicar */
+.chip:not(:disabled):active {
+  background: rgba(143, 211, 255, 0.15);
+  transform: scale(0.96);
+}
+
+/* Chips de combate */
+.chip-combate:not(:disabled):active {
+  background: rgba(255, 107, 107, 0.2);
+  transform: scale(0.96);
+}
+
+/* Chips de magia */
+.chip-magia:not(:disabled):active {
+  background: rgba(143, 184, 255, 0.2);
+  transform: scale(0.96);
+}
+
+/* Botões primários */
+.botao.primario:not(:disabled):active {
+  background: rgba(143, 211, 255, 0.25);
+  transform: scale(0.98);
+}
+
+/* Cards de opção */
+.card-opcao:active {
+  transform: scale(0.98);
+}
+
+/* Abas de login */
+.aba:active {
+  background: var(--bg-3);
+}
+
+/* ================================================================== */
+/* AJUSTES EXTRAS DE LEGIBILIDADE                                      */
+/* ================================================================== */
+
+/* No mobile, evita zoom automático ao tocar em inputs */
+@media (max-width: 640px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
+/* Cursor "text" apenas onde realmente é texto */
+.log .texto {
+  cursor: text;
+}
