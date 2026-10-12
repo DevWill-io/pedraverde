@@ -1,4 +1,4 @@
-Aqui está o **`PROJETO.md`** atualizado. Removi do roadmap o que já foi implementado (Save Export/Import, Talentos, Conquistas) e movi essas features para a seção de **Funcionalidades Implementadas**. Também atualizei métricas, comandos, limites e o TL;DR.
+Aqui está o `PROJETO.md` atualizado com tudo que foi implementado desde a última versão: **clima e horário, descansar melhorado, filtros de inventário, toasts, refatoração do App.jsx**.
 
 ```markdown
 # ⚔ PEDRAVERDE — Documento de Handoff Completo
@@ -14,16 +14,17 @@ Aqui está o **`PROJETO.md`** atualizado. Removi do roadmap o que já foi implem
 
 **Nome:** Pedraverde
 **Tipo:** RPG de texto medieval jogável no navegador
-**Estilo:** Terminal retrô com tema escuro, fonte monoespaçada, cores por tipo de
-mensagem
+**Estilo:** Terminal retrô com tema escuro, fontes monoespaçadas, cores por tipo
+de mensagem
 **URL:** https://pedraverde.vercel.app
-**Status:** Publicado e funcional. Base sólida com **17 blocos implementados**,
-com features de longo prazo em desenvolvimento.
+**Status:** Publicado e funcional. Base sólida com **22 features implementadas**,
+com sistema de clima, tempo, filtros e toasts recentes.
 
 ### Ideia central
 O jogador digita comandos em um input e recebe respostas em um log rolável. Toda
 a interação é por texto — combate, navegação, crafting, magias, talentos,
-conquistas, etc. O tom é de fantasia medieval, começando na vila de Pedraverde.
+conquistas, clima, etc. O tom é de fantasia medieval, começando na vila de
+Pedraverde.
 
 ---
 
@@ -95,20 +96,30 @@ VITE_FIREBASE_APP_ID=
 │   │   ├── encantamentos.js       # 5 encantamentos elementais
 │   │   ├── talentos.js            # 40 talentos em 5 classes
 │   │   ├── conquistas.js          # 45 conquistas + 20 títulos
+│   │   ├── clima.js               # 5 climas + 5 períodos do dia  ⭐ NOVO
 │   │   └── i18n.js                # Traduções PT/EN + aliases de comandos
 │   │
 │   ├── engine/
-│   │   └── jogo.js                # Motor do jogo (comandos, combate, IA)
+│   │   └── jogo.js                # Motor do jogo (comandos, combate, IA, tempo)
+│   │
+│   ├── constants/                 # Constantes de UI            ⭐ NOVO
+│   │   ├── prefixos.js            # Mapa de prefixos visuais do log
+│   │   └── toasts.js              # Config dos toasts
+│   │
+│   ├── utils/                     # Utilitários                 ⭐ NOVO
+│   │   └── config.js              # Persistência da config (idioma, som, tema)
 │   │
 │   ├── components/
 │   │   ├── Login.jsx              # Tela de login/cadastro
 │   │   ├── Slots.jsx              # Escolha de save + export/import
+│   │   ├── TelaCriacao.jsx        # Criação de personagem      ⭐ NOVO
+│   │   ├── TelaJogo.jsx           # Tela de jogo (log, status) ⭐ NOVO
 │   │   ├── Tutorial.jsx           # Tutorial completo (11 seções)
 │   │   ├── Config.jsx             # Painel de configurações (modal)
 │   │   ├── Chat.jsx               # Chat global (modal)
 │   │   └── Ranking.jsx            # Ranking global (modal)
 │   │
-│   ├── App.jsx                    # Componente principal + TelaCriacao + TelaJogo
+│   ├── App.jsx                    # Componente raiz (orquestração enxuta)
 │   ├── main.jsx                   # Entrada do React
 │   ├── firebase.js                # Inicialização do Firebase
 │   ├── saves.js                   # Sistema de save + export/import
@@ -144,7 +155,7 @@ VITE_FIREBASE_APP_ID=
 - ✅ Save automático ao clicar em "Salvar" + ao trocar de local
 - ✅ Cada slot mostra: emoji raça/classe, nome, nível, local, HP, data
 
-### 4.3 Save Export / Import ⭐ NOVO
+### 4.3 Save Export / Import
 - ✅ Botão **↓ exportar** em cada slot com save
 - ✅ Botão **↑ importar** em cada slot (inclusive vazios)
 - ✅ Validação de arquivo `.json` (JSON válido, campos esperados, máx 2MB)
@@ -166,19 +177,22 @@ VITE_FIREBASE_APP_ID=
 - ✅ Feedback visual de clique (scale + mudança de fundo)
 - ✅ Badge `★` pulsante no header quando há ponto de talento
 - ✅ Título equipado ao lado do nome
+- ✅ Faixa de clima + período + hora + dia no header ⭐ NOVO
 
 ### 4.5 Comandos do Jogo
 **Exploração:**
 - `ajuda` / `help` / `?`
 - `olhar` / `look` / `l`
 - `mapa` / `map` / `m`
+- `clima` / `tempo` / `weather` ⭐ NOVO
+- `hora` / `time` ⭐ NOVO
 - `ir <direção>` / `go <direction>`
 - `pegar` / `take` / `get`
-- `descansar` / `rest` / `sleep`
+- `descansar` / `rest` / `sleep` (melhorado com custo/cooldown)
 
 **Itens e equipamento:**
-- `inventario` / `inventory` / `inv` / `i` (com descrição)
-- `examinar <item>` / `inspecionar` / `ver` / `verificar` ⭐ NOVO
+- `inventario [filtros]` / `inventory` / `inv` / `i` (filtros + ordenação) ⭐ NOVO
+- `examinar <item>` / `inspecionar` / `ver` / `verificar`
 - `equipar <item>` / `equip`
 - `desequipar <slot>` / `remover`
 - `usar <item>` / `use`
@@ -189,11 +203,11 @@ VITE_FIREBASE_APP_ID=
 - `magia <nome>` / `spell`
 - `efeitos` / `buffs`
 
-**Talentos:** ⭐ NOVO
+**Talentos:**
 - `talentos` / `talent`
 - `escolher <nível> <1|2>` / `aprender`
 
-**Conquistas:** ⭐ NOVO
+**Conquistas:**
 - `conquistas` / `achievements` / `conquista`
 - `titulo <nome>` / `title`
 
@@ -242,8 +256,9 @@ VITE_FIREBASE_APP_ID=
 - ✅ **Combo tático:** defender → focar → forte = dano crítico devastador
 - ✅ **Status effects em combate** (veneno, sangramento, queimadura, atordoar, congelar)
 - ✅ **Encantamentos elementais** disparam ao acertar golpe
+- ✅ **Clima afeta combate:** fogo -2 na chuva, crítico na tempestade, erro no nevoeiro ⭐ NOVO
 
-### 4.7 IA Reativa de Inimigos ⭐ NOVO
+### 4.7 IA Reativa de Inimigos
 - ✅ **Reage ao que o jogador fez** no turno anterior:
   - Jogador `focar` → **65% de chance de defender**
   - Jogador `defender` → **45% de chance de focar**
@@ -260,7 +275,7 @@ VITE_FIREBASE_APP_ID=
 - ✅ **Inimigos fogem** com HP < 20% (35% de chance) — jogador ganha 30% do XP
 - ✅ Chefes **ENFURECEM** abaixo de 50% HP (+2 ATK)
 
-### 4.8 Árvore de Talentos ⭐ NOVO
+### 4.8 Árvore de Talentos
 - ✅ **40 talentos** em 5 classes × 4 níveis (5, 10, 15, 20)
 - ✅ Ao subir de nível nos marcos, ganha **+1 ponto de talento**
 - ✅ Cada nível oferece **2 talentos** — escolhe 1
@@ -270,15 +285,13 @@ VITE_FIREBASE_APP_ID=
 - ✅ **Clérigo:** Fé, Julgamento, Bênção Duradoura, Aura Sagrada, Sacerdote, Curandeiro, Santo, Inquisidor
 - ✅ **Arqueiro:** Tiro Rápido, Mira Letal, Flecha Perfurante, Tiro Certeiro, Caçador, Atirador de Elite, Mestre Arqueiro, Olho de Águia
 - ✅ Talentos **mudam o comportamento em combate**, não só stats
-- ✅ Badge `★` pulsante no header + chip `★ talentos` quando disponível
 
-### 4.9 Conquistas e Títulos ⭐ NOVO
+### 4.9 Conquistas e Títulos
 - ✅ **45 conquistas** em 7 categorias: progressão, combate, chefes, exploração, itens, economia, eventos
 - ✅ Cada conquista dá **bônus permanentes** (ATK, DEF, HP, MP)
 - ✅ **20 títulos** para equipar (ex: "Matador de Dragões", "Lenda", "Imortal", "Fênix")
 - ✅ Título aparece ao lado do nome no header
 - ✅ Toast de notificação ao desbloquear
-- ✅ Comandos `conquistas` e `titulo <nome>`
 
 ### 4.10 Magias e Mana
 - ✅ Sistema de **Mana (MP)** com barra visual
@@ -314,7 +327,7 @@ VITE_FIREBASE_APP_ID=
 - **Nível alto:** Cultista, Escorpião, Abutre, Saqueador, Serpente, Pirata, Lobo Glacial, Golem de Gelo, Guarda Real, Cavaleiro Negro, Mago Negro
 - **Chefes:** Troll, Ogro, Bruxa, Rei Bandido, Hidra, Bispo Sombrio, Rei Mumificado, Esfinge, Capitão Pirata, Gigante de Gelo, Rei dos Gigantes, Dragão Ancião, Rei Antigo
 
-**Balanceamento recente:** todos os inimigos foram reforçados em ~75-100% de HP e ~35-50% de ATK.
+**Balanceamento:** todos os inimigos foram reforçados em ~75-100% de HP e ~35-50% de ATK.
 
 ### 4.14 Itens (~167 em 11 categorias)
 - **Consumíveis:** comidas, poções, pergaminhos
@@ -323,9 +336,17 @@ VITE_FIREBASE_APP_ID=
 - **Materiais:** ferro, madeira, couro, cristal, gemas
 - **Relíquias:** chaves, mapas, fragmentos
 
-**Raridades:** comum, incomum, raro, épico, lendário, **mítico** (novo)
+**Raridades:** comum, incomum, raro, épico, lendário, **mítico**
 
-### 4.15 Crafting e Encantamento
+### 4.15 Filtros de Inventário ⭐ NOVO
+- ✅ **Filtros por tipo:** `inventario arma`, `armadura`, `consumivel`, `material`, `gema`, `equipado`
+- ✅ **Filtros por raridade:** `comum`, `incomum`, `raro+`, `epico+`, `lendario+`, `mitico`
+- ✅ **Ordenação:** `preco`, `nome`, `raridade`, `tipo`, `qtd`
+- ✅ **Combinação livre:** `inventario arma raro preco`
+- ✅ **Rodapé com resumo:** total de tipos, unidades e valor em ouro
+- ✅ **Dicas contextuais** quando sem filtro
+
+### 4.16 Crafting e Encantamento
 - ✅ **28 receitas** (ferraria, alquimia, cozinha)
 - ✅ Precisa de materiais + moedas + nível mínimo
 - ✅ **5 encantamentos elementais:** fogo, gelo, veneno, raio, sagrado
@@ -333,72 +354,113 @@ VITE_FIREBASE_APP_ID=
 - ✅ Efeito dispara ao atacar (chance variável)
 - ✅ Só 1 encantamento por peça de equipamento
 
-### 4.16 Quests
+### 4.17 Quests
 - ✅ **9 quests** distribuídas pelo mundo
 - ✅ Progresso rastreado automaticamente
 - ✅ Recompensa dada na hora ao completar
 - ✅ Comando `quests` mostra descrição + recompensa + "para aceitar: aceitar X" **antes de aceitar**
 
-### 4.17 Sistema de Eventos
-- ✅ **12 eventos aleatórios** ao viajar (15% de chance)
+### 4.18 Sistema de Eventos
+- ✅ **12 eventos aleatórios** ao viajar (15% de chance base)
 - ✅ Bons (moedas, poções, fontes), ruins (armadilhas, ladrões, veneno) e neutros
+- ✅ Chance de evento aumenta em anoitecer e noite ⭐ NOVO
 
-### 4.18 Efeitos (Status)
+### 4.19 Efeitos (Status)
 - ✅ 7 efeitos: veneno, queimadura, sangramento, regeneração, força, fraqueza, lentidão
 - ✅ Inimigos aplicam efeitos (aranha envenena, esqueleto sangra)
 - ✅ Antídoto limpa efeitos de dano contínuo
 
-### 4.19 Arena de Treino
+### 4.20 Arena de Treino
 - ✅ Local em Pedraverde (nordeste)
 - ✅ Luta contra inimigos fracos sem risco
 - ✅ XP reduzido (50%), sem loot
 - ✅ Nocaute em vez de morte
 
-### 4.20 Bestiário
+### 4.21 Bestiário
 - ✅ Comando `bestiario` mostra todos inimigos derrotados
 - ✅ Ordenado por quantidade
 - ✅ Mostra HP, ATK, DEF, XP
 
-### 4.21 Diário
+### 4.22 Diário
 - ✅ Comando `diario` com estatísticas completas
-- ✅ Locais visitados, inimigos mortos, mortes, arena, dano, magias, itens criados, itens encantados, talentos, conquistas, fugas de inimigos
+- ✅ Locais visitados, inimigos mortos, mortes, arena, dano, magias, itens criados, itens encantados, talentos, conquistas, fugas de inimigos, clima atual, dia do jogo
 
-### 4.22 Tutorial
-- ✅ Tela completa com **11 seções** ⭐ ATUALIZADO
-- ✅ Boas-vindas, Criação, Comandos, Combate, Magias, **Talentos**, **Conquistas**, Crafting, Mapa, Progressão, Dicas
+### 4.23 Tutorial
+- ✅ Tela completa com **11 seções**
+- ✅ Boas-vindas, Criação, Comandos, Combate, Magias, Talentos, Conquistas, Crafting, Mapa, Progressão, Dicas
 - ✅ Acessível do Login e do jogo (comando `tutorial` ou botão 📖)
 
-### 4.23 Multi-idioma
+### 4.24 Multi-idioma
 - ✅ **Português** e **English**
 - ✅ Tradução da UI completa
 - ✅ **Aliases de comandos:** 60+ comandos em inglês funcionam
 - ✅ Configurável em Config → Idioma
 
-### 4.24 Sons e Música
+### 4.25 Sons e Música
 - ✅ **16 efeitos sonoros** sintetizados (sem MP3)
 - ✅ **Música ambiente procedural** (progressão Am → F → G → C, pad + baixo + reverb)
 - ✅ Volume controlável em tempo real
 - ✅ Toggle de som e música separados
 - ✅ Sons reagem ao tipo de mensagem no log (dano, cura, level up, morte, etc.)
 
-### 4.25 PWA
+### 4.26 PWA
 - ✅ Manifest com ícone SVG próprio
 - ✅ Service Worker com cache
 - ✅ Instalável como app (Chrome/Edge Android + iOS Safari)
 - ✅ Funciona offline depois do primeiro acesso
 - ✅ Prompt "Instalar como app" no painel de Config
 
-### 4.26 Multiplayer (via Firebase)
+### 4.27 Multiplayer (via Firebase)
 - ✅ **Chat global** em tempo real (modal 💬)
 - ✅ **Ranking global** (top 20 por nível, modal 🏆)
 - ✅ Ambos usam Firestore com regras de segurança
 
-### 4.27 Configurações
+### 4.28 Configurações
 - ✅ Modal com: idioma, tema (claro/escuro), som, música, volume, instalação PWA
 - ✅ Persistente em localStorage
 - ✅ Tema claro implementado via `[data-tema="claro"]`
 
-### 4.28 SEO e Indexação
+### 4.29 Sistema de Clima e Horário ⭐ NOVO
+- ✅ **5 climas:** limpo, chuva, tempestade, neve, nevoeiro
+- ✅ **5 períodos:** amanhecer, dia, anoitecer, noite, madrugada (madrugada é pulada — dia vira às 06:00)
+- ✅ **Ciclo de 24h** que avança a cada 5 comandos
+- ✅ **Efeitos reais no combate:**
+  - Chuva: -2 dano de fogo, +1 de gelo
+  - Tempestade: -3 dano de fogo, +2 de gelo, +10% crítico
+  - Nevoeiro: -5% crítico, +10% chance de errar ataque
+  - Neve: +1 ATK dos inimigos
+  - Noite: +1 ATK e +10% HP dos inimigos, +30% encontros
+- ✅ **Comandos `clima` e `hora`** mostram detalhes
+- ✅ **Header mostra** clima + período + hora + dia
+- ✅ **Clima sorteado por bioma** (deserto é sempre limpo, montanha tem neve, etc.)
+- ✅ **Descansar avança o tempo** (3h de dia, 6h de noite)
+
+### 4.30 Descansar Melhorado ⭐ NOVO
+- ✅ **Custo de 5◈** em locais com loja (Ferraria, Mercado, Templo, etc.)
+- ✅ **Cooldown de 1 hora** entre descansos
+- ✅ **Cura 100%** à noite/anoitecer (6h de descanso)
+- ✅ **Cura 50%** de dia/amanhecer (3h)
+- ✅ **50% de risco** de ser atacado em local semi-selvagem (Colinas Bandidas, ilha pirata)
+- ✅ **Bloqueado** em local selvagem puro (Floresta, Caverna, covis)
+
+### 4.31 Toast Notifications ⭐ NOVO
+- ✅ Sistema de fila com **até 4 toasts simultâneos**
+- ✅ **16 tipos** de notificação: level up, conquista, talento, morte, vitória, item épico, quest, craft, encantar, clima, tempo, save, load, etc.
+- ✅ Cores e emojis por tipo
+- ✅ **Auto-dismiss** após 4.2 segundos
+- ✅ **Animação de entrada** (slide + scale)
+- ✅ **Responsivo:** ocupa largura total no mobile
+- ✅ Substituiu o toast antigo (centro-inferior)
+
+### 4.32 Refatoração do App.jsx ⭐ NOVO
+- ✅ `App.jsx` reduzido de ~700 para **~180 linhas**
+- ✅ `TelaCriacao` extraída para `components/TelaCriacao.jsx`
+- ✅ `TelaJogo` extraída para `components/TelaJogo.jsx`
+- ✅ `PREFIXOS` movido para `constants/prefixos.js`
+- ✅ `TOAST_TIPOS` movido para `constants/toasts.js`
+- ✅ `lerConfig`/`gravarConfig` movidos para `utils/config.js`
+
+### 4.33 SEO e Indexação
 - ✅ Meta tags completas (title, description, keywords)
 - ✅ Open Graph (Facebook, WhatsApp, LinkedIn)
 - ✅ Twitter Card
@@ -407,7 +469,7 @@ VITE_FIREBASE_APP_ID=
 - ✅ Canonical URL
 - ⏳ **Pendente:** registro no Google Search Console (você já fez, precisa só confirmar indexação)
 
-### 4.29 Deploy
+### 4.34 Deploy
 - ✅ Repositório no GitHub (`DevWill-io/pedraverde`)
 - ✅ Auto deploy na Vercel
 - ✅ URL: https://pedraverde.vercel.app
@@ -455,9 +517,9 @@ VITE_FIREBASE_APP_ID=
 4. **Quests:** descrição + recompensa visíveis antes de aceitar
 5. **Divisórias visuais:** separadores entre itens/quests, cores por hierarquia
 6. **Inimigos reforçados:** +75-100% HP, +35-50% ATK
-7. **UX de clique:** sem cursor `|` no desktop, sem fundo azul no mobile, feedback visual próprio
+7. **UX de clique:** sem cursor `|` no desktop, sem fundo azul no mobile
 
-### Fase 6 — Features de longo prazo (recentes) ⭐ NOVO
+### Fase 6 — Features de longo prazo
 1. **Save export/import:** backup em JSON + migração entre dispositivos
 2. **Árvore de talentos:** 40 talentos em 5 classes × 4 níveis
 3. **IA reativa:** inimigos veem o que você fez e respondem
@@ -466,6 +528,14 @@ VITE_FIREBASE_APP_ID=
 6. **Conquistas:** 45 conquistas em 7 categorias
 7. **Títulos:** 20 títulos equipáveis (bônus permanentes)
 8. **Tutorial expandido:** 11 seções (Talentos + Conquistas)
+
+### Fase 7 — Polimento + Sistema de Clima ⭐ NOVO
+1. **Sistema de clima:** 5 climas com efeitos reais em combate
+2. **Ciclo dia/noite:** 5 períodos, tempo avança, madrugada pulada
+3. **Descansar melhorado:** custo, cooldown, cura por período, risco
+4. **Filtros de inventário:** tipo, raridade, ordenação, combinação livre
+5. **Toast notifications:** 16 tipos de notificações com fila e animação
+6. **Refatoração do App.jsx:** separado em componentes + constantes + utils
 
 ---
 
@@ -480,27 +550,23 @@ VITE_FIREBASE_APP_ID=
 - **Impacto:** retenção
 - **Esforço:** ~2-3h
 
-#### 6.2 Filtros e Ordenação no Inventário
-- `inventario arma` — só armas
-- `inventario raro` — só raros
-- `inventario pocao` — só consumíveis
-- Agrupar por tipo, ordenar por preço
-- **Impacto:** QoL grande
-- **Esforço:** ~1h
-
-#### 6.3 Toast Notifications Melhoradas
-- Aviso quando sobe nível, ganha conquista, acha loot raro
-- Notificação deslizante no canto da tela
-- **Impacto:** feedback visual
-- **Esforço:** ~1h
-
-#### 6.4 Sistema de Clima e Horário
-- Chuva: -1 dano de fogo, +1 de gelo
-- Neve: movimento lento, inimigos mais fortes
-- Noite: 30% mais encontros, inimigos raros
-- Cada região tem clima e hora própria
+#### 6.2 Modo Leitura
+- Esconde chips, botões e barra lateral
+- Só log + input
 - **Impacto:** imersão
-- **Esforço:** ~2h
+- **Esforço:** ~1h
+
+#### 6.3 Auto-explorar
+- Anda automaticamente até encontrar combate
+- Para quando aparece inimigo ou item no chão
+- **Impacto:** grind acelerado
+- **Esforço:** ~1h
+
+#### 6.4 Sons Ambientais por Bioma
+- Pássaros na floresta, ondas no porto, vento na montanha
+- Loop de fundo que muda conforme local
+- **Impacto:** imersão sonora
+- **Esforço:** ~1h
 
 ### 🥈 Alto impacto, esforço médio-alto
 
@@ -544,23 +610,20 @@ VITE_FIREBASE_APP_ID=
 - **6.11** Guildas (criar, entrar, chat interno)
 - **6.12** PvP amistoso (enfrentar outros jogadores)
 - **6.13** Karma / reputação com facções
-- **6.14** Sons ambientais por bioma (pássaros, ondas, vento)
-- **6.15** Modo leitura (esconde botões, só texto)
-- **6.16** Auto-explorar (anda automaticamente até encontrar combate)
-- **6.17** Sistema de prestígio / reencarnação
+- **6.14** Sistema de prestígio / reencarnação
 
 ### 🚀 Longo prazo
 
-- **6.18** Multiplayer em tempo real (party de até 4, chefe mundial, PvP ranked)
-- **6.19** Prestígio (reset de nível por bônus permanente)
-- **6.20** Modos hardcore / ironman / speedrun
-- **6.21** Battle pass sazonal
-- **6.22** Mais idiomas (ES/FR/DE)
-- **6.23** Sistema de romance com NPCs
-- **6.24** Facções em guerra (Sol, Sombra, Selvagem)
-- **6.25** Livros e pergaminhos de lore (colecionáveis)
-- **6.26** Codex interno (enciclopédia do jogo)
-- **6.27** Chefes mundiais (todos jogadores atacam juntos)
+- **6.15** Multiplayer em tempo real (party de até 4, chefe mundial, PvP ranked)
+- **6.16** Prestígio (reset de nível por bônus permanente)
+- **6.17** Modos hardcore / ironman / speedrun
+- **6.18** Battle pass sazonal
+- **6.19** Mais idiomas (ES/FR/DE)
+- **6.20** Sistema de romance com NPCs
+- **6.21** Facções em guerra (Sol, Sombra, Selvagem)
+- **6.22** Livros e pergaminhos de lore (colecionáveis)
+- **6.23** Codex interno (enciclopédia do jogo)
+- **6.24** Chefes mundiais (todos jogadores atacam juntos)
 
 ---
 
@@ -591,6 +654,9 @@ fix(loja): adiciona lista numerada com descrição
 style(ui): remove cursor de texto no desktop
 feat(talentos): adiciona árvore de talentos por classe
 feat(conquistas): adiciona sistema de conquistas e títulos
+feat(clima): adiciona sistema de clima e ciclo dia/noite
+feat(inventario): adiciona filtros, ordenação e resumo
+feat(ui): adiciona toast notifications no canto superior direito
 ```
 
 ### 7.2 Padrões de Código
@@ -599,7 +665,8 @@ feat(conquistas): adiciona sistema de conquistas e títulos
 - A função `processar(estado, entradaBruta)` recebe o estado e um comando
 - Retorna `{ estado, linhas }` onde `linhas` é array de `{ texto, tipo }`
 - Cada comando é um `case` no `switch` gigante
-- Helpers: `addItem`, `remItem`, `qtdItem`, `barra`, `tipoRaridade`, `raridadeTag`, `temTalento`, `checarConquistas`
+- Helpers: `addItem`, `remItem`, `qtdItem`, `barra`, `tipoRaridade`, `raridadeTag`, `temTalento`, `checarConquistas`, `avancarTempo`
+- Filtros de inventário: `FILTROS_INVENTARIO` no topo do arquivo
 
 **Tipos de linha (cores):**
 - `jogador` — azul (›)
@@ -612,6 +679,7 @@ feat(conquistas): adiciona sistema de conquistas e títulos
 - `quest*` — azul/verde/amarelo
 - `talento-*` — amarelo/azul/verde
 - `conquista*` — amarelo brilhante
+- `tempo-*` — azul/amarelo (clima e hora)
 - `raridade-*` — cor da raridade
 - `separador` / `espaco` — divisórias invisíveis
 - `item-desc` — itálico cinza
@@ -623,6 +691,9 @@ feat(conquistas): adiciona sistema de conquistas e títulos
   versao, nome, raca, classe, nivel, xp, xpProx,
   hpMax, hp, manaMax, mana, atk, def, moedas,
   magias: [], efeitos: [], local,
+  // ⭐ Sistema de tempo
+  hora: 6, dia: 1, climaAtual: 'limpo', contadorTempo: 0,
+  ultimoDescanso: -999,
   inventario: [{ id, qtd }],
   equipado: { arma, escudo, elmo, armadura, botas, anel, colar, capa },
   encantamentos: { slot: tipo },
@@ -630,7 +701,10 @@ feat(conquistas): adiciona sistema de conquistas e títulos
   conquistasDesbloqueadas: [], titulo: null,
   questsAtivas: [], questsCompletas: [], progresso: {}, flags: {},
   emCombate: null,
-  estatisticas: { locaisVisitados, inimigosMortos, mortes, danoTotal, danoRecebido, magiasLancadas, eventosVividos, turnosDeCombate, vitoriasArena, nocauteArena, itensCriados, itensEncantados, fugasInimigos, criadoEm },
+  estatisticas: { locaisVisitados, inimigosMortos, mortes, danoTotal,
+    danoRecebido, magiasLancadas, eventosVividos, turnosDeCombate,
+    vitoriasArena, nocauteArena, itensCriados, itensEncantados,
+    fugasInimigos, criadoEm },
   atualizadoEm
 }
 ```
@@ -673,6 +747,8 @@ service cloud.firestore {
 - Slots de save: 3
 - Nível máximo: sem limite (cresce com fórmula polinomial)
 - Import de save: máx 2MB
+- Toasts simultâneos: 4
+- Descanso: cooldown de 1 hora entre descansos
 
 ### 7.6 Como Rodar Localmente
 ```bash
@@ -703,7 +779,7 @@ Se você é uma IA lendo isso para continuar o projeto, saiba que:
 
 3. **A convenção de mensagens do log** é `{ texto, tipo }`. Se você quer uma
    cor nova, precisa:
-   - Adicionar o tipo no `PREFIXOS` em `App.jsx`
+   - Adicionar o tipo no `PREFIXOS` em `constants/prefixos.js`
    - Adicionar a regra CSS em `styles.css`
 
 4. **Toda alteração significativa** precisa terminar com mensagem de commit
@@ -737,6 +813,16 @@ Se você é uma IA lendo isso para continuar o projeto, saiba que:
     ```
     Se `titulo` estiver definido, vira um título equipável.
 
+12. **O sistema de clima** está em `content/clima.js`. Climas são sorteados
+    por região (`CLIMAS_POR_REGIAO`) e afetam combate. Períodos são calculados
+    a partir da hora (`calcularPeriodo`).
+
+13. **O sistema de toasts** está em `constants/toasts.js` + `components/TelaJogo.jsx`.
+    Cada tipo de linha em `TOAST_TIPOS` vira notificação flutuante.
+
+14. **Componentes grandes** foram extraídos para `components/TelaCriacao.jsx` e
+    `components/TelaJogo.jsx`. O `App.jsx` agora é só orquestração (~180 linhas).
+
 ---
 
 ## 📊 9. Métricas do Projeto
@@ -760,8 +846,11 @@ Se você é uma IA lendo isso para continuar o projeto, saiba que:
 | Talentos | 40 |
 | Conquistas | 45 |
 | Títulos | 20 |
-| Seções do tutorial | **11** |
-| Comandos | ~55 |
+| Climas | 5 |
+| Períodos do dia | 5 |
+| Tipos de toast | 16 |
+| Seções do tutorial | 11 |
+| Comandos | ~60 |
 | Idiomas | 2 (PT/EN) |
 | Efeitos sonoros | 16 |
 
@@ -773,54 +862,53 @@ Se você é uma IA lendo isso para continuar o projeto, saiba que:
 > https://pedraverde.vercel.app. Tem ~167 itens, 9 regiões, 12 chefes, combate
 > tático de 7 ações com **IA reativa**, magias, **40 talentos** em 5 classes,
 > crafting, encantamentos, **45 conquistas + 20 títulos**, **save export/import
-> em JSON**, PWA, sons procedurais, chat global e ranking. Tudo documentado
-> em `PROJETO.md`. As melhorias futuras prioritárias são: eventos diários,
-> filtros no inventário, campanha com narrativa, companheiros, escolhas com
-> consequência e dungeon procedural. Convenção de commit:
+> em JSON**, **sistema de clima + ciclo dia/noite**, **descansar melhorado**
+> (custo/cooldown/risco), **filtros de inventário**, **toast notifications**,
+> PWA, sons procedurais, chat global e ranking. Tudo documentado em `PROJETO.md`.
+> As melhorias futuras prioritárias são: eventos diários, modo leitura,
+> auto-explorar, sons ambientais, campanha com narrativa, companheiros,
+> escolhas com consequência e dungeon procedural. Convenção de commit:
 > `tipo(escopo): descrição`.
 
 ---
 
-*Última atualização: 2026-10-12 — após implementação de save export/import,
-talentos, IA reativa e conquistas.*
+*Última atualização: 2026-10-12 — após implementação de clima, descansar melhorado,
+filtros de inventário, toasts e refatoração do App.jsx.*
 ```
 
 ---
 
-## ✅ O que mudou no `PROJETO.md`
+## ✅ O que mudou nesta versão
 
 ### ➕ Adicionado em "Funcionalidades Implementadas"
-| Seção | Status |
+| Seção | Destaque |
 |---|---|
-| **4.3 Save Export / Import** | ⭐ NOVO |
-| **4.7 IA Reativa de Inimigos** | ⭐ NOVO |
-| **4.8 Árvore de Talentos** | ⭐ NOVO |
-| **4.9 Conquistas e Títulos** | ⭐ NOVO |
-| Novos comandos em 4.5 | `examinar`, `talentos`, `escolher`, `conquistas`, `titulo` |
-| Tutorial atualizado | 9 → **11 seções** |
+| **4.15 Filtros de Inventário** | ⭐ NOVO |
+| **4.29 Sistema de Clima e Horário** | ⭐ NOVO |
+| **4.30 Descansar Melhorado** | ⭐ NOVO |
+| **4.31 Toast Notifications** | ⭐ NOVO |
+| **4.32 Refatoração do App.jsx** | ⭐ NOVO |
+| Novos comandos em 4.5 | `clima`, `hora`, `inventario [filtros]` |
 
 ### ➖ Removido do Roadmap (já implementado)
-- ~~6.1 Save Export / Import~~ ✅ feito
-- ~~6.2 Árvore de Talentos~~ ✅ feito
-- ~~6.3 Conquistas e Títulos~~ ✅ feito
+- ~~6.1 Save Export / Import~~ (já estava)
+- ~~6.2 Árvore de Talentos~~ (já estava)
+- ~~6.3 Conquistas e Títulos~~ (já estava)
+- ~~6.2 Filtros no inventário~~ ✅ feito
+- ~~6.3 Toast notifications~~ ✅ feito
+- ~~6.4 Sistema de clima~~ ✅ feito
 
 ### 🔄 Reorganizado
-- Roadmap renumerado (antigos 6.4 → 6.1, etc.)
-- Novas fases na linha do tempo: **Fase 6 — Features de longo prazo**
-- Estado do jogador ganhou: `talentos`, `pontosTalento`, `conquistasDesbloqueadas`, `titulo`, `fugasInimigos`
+- **Fase 7 — Polimento + Sistema de Clima** adicionada à linha do tempo
+- Roadmap renumerado
+- Estado do jogador ganhou: `hora`, `dia`, `climaAtual`, `contadorTempo`, `ultimoDescanso`
+- Estrutura de arquivos ganhou: `constants/`, `utils/`, `TelaCriacao.jsx`, `TelaJogo.jsx`, `clima.js`
+- Regras Firestore atualizadas (chat com validações reforçadas)
 
 ### 📊 Métricas atualizadas
-- Talentos: **40**
-- Conquistas: **45**
-- Títulos: **20**
-- Seções do tutorial: **11**
-- Comandos: **~55** (antes ~50)
+- Climas: **5**
+- Períodos do dia: **5**
+- Tipos de toast: **16**
+- Comandos: **~60**
 
 ---
-
-> 📝 **Commit sugerido:**
-> ```
-> docs(handoff): atualiza PROJETO.md com talentos, conquistas, IA e export/import
-> ```
-
-Salva o arquivo, faz commit e push. Quando voltar ao projeto (ou trocar de chat), é só colar esse arquivo que tudo fica claro. ⚔
