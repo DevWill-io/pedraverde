@@ -254,6 +254,21 @@ export default function TelaJogo({
           <span className="tempo-tag tempo-dia">📅 Dia {estado.dia || 1}</span>
         </div>
 
+        {/* ⭐ Banner da dungeon */}
+        {estado.dungeon && !emCombate && (
+          <div className="faixa-dungeon">
+            <span className="dungeon-tag">🌀 Masmorra Arcana</span>
+            <span className="dungeon-info">
+              Andar {estado.dungeon.andarAtual}/{estado.dungeon.totalAndares}
+              {' · '}
+              Sala {estado.dungeon.salaAtual + 1}/{estado.dungeon.andares[estado.dungeon.andarAtual - 1]?.length || 0}
+            </span>
+            <span className="dungeon-loot">
+              ◈ {estado.dungeon.recompensaAcumulada.moedas} · ◆ {estado.dungeon.recompensaAcumulada.itens.length}
+            </span>
+          </div>
+        )}
+
         {!emCombate && efeitosAtivos.length > 0 && (
           <div className="faixa-efeitos">
             {efeitosAtivos.map((ef, i) => {
@@ -311,6 +326,21 @@ export default function TelaJogo({
             <button className="chip chip-arena" onClick={() => clicarComando('treinar goblin')}>goblin</button>
             <button className="chip chip-arena" onClick={() => clicarComando('treinar esqueleto')}>esqueleto</button>
             <button className="chip" onClick={() => clicarComando('mapa')}>{idioma === 'en' ? 'map' : 'mapa'}</button>
+          </>
+        ) : estado.dungeon ? (
+          <>
+            <button className="chip chip-dungeon" onClick={() => clicarComando('avancar')}>⬇ avancar</button>
+            <button className="chip chip-dungeon" onClick={() => clicarComando('sair_dungeon')}>🚪 sair_dungeon</button>
+            <button className="chip" onClick={() => clicarComando('status')}>status</button>
+            <button className="chip" onClick={() => clicarComando('inventario')}>inventario</button>
+            {magiasDisponiveis.length > 0 && <button className="chip" onClick={() => clicarComando('magias')}>magias</button>}
+          </>
+        ) : local?.portal ? (
+          <>
+            <button className="chip chip-portal" onClick={() => clicarComando('entrar')}>🌀 entrar</button>
+            <button className="chip" onClick={() => clicarComando('falar')}>falar</button>
+            <button className="chip" onClick={() => clicarComando('mapa')}>mapa</button>
+            <button className="chip" onClick={() => clicarComando('status')}>status</button>
           </>
         ) : (
           <>

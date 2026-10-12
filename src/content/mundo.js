@@ -35,6 +35,7 @@ export const MUNDO = {
     saidas: {
       norte: 'floresta', leste: 'ferraria', oeste: 'alquimista',
       sul: 'mercado', nordeste: 'arena', sudeste: 'vale_sol',
+      noroeste: 'portao_arcano',   // ⭐ NOVO
     },
     npc: {
       nome: 'Anciã Mira',
@@ -107,6 +108,28 @@ export const MUNDO = {
     npc: {
       nome: 'Veterano Rodrigo',
       falas: ['"Aqui testamos quem serve."', '"Na arena, ninguém morre."'],
+    },
+  },
+
+    portao_arcano: {
+    id: 'portao_arcano', regiao: 'vila',
+    nome: 'Portão Arcano',
+    desc: 'Um arco de pedra negra cravado no chão, pulsando com runas azuis. Do centro, uma névoa densa sobe. Dizem que leva a masmorras geradas pela própria magia.',
+    variacoes: [
+      'As runas do portal brilham mais forte quando você se aproxima.',
+      'Um som grave vem de dentro da névoa.',
+      'O ar em volta é mais frio.',
+      '',
+    ],
+    saidas: { sudeste: 'pedraverde' },
+    portal: true,
+    npc: {
+      nome: 'Eco Antigo',
+      falas: [
+        '"... atrás deste portão, a própria magia criou labirintos sem fim."',
+        '"Cada entrada é única. Cada saída, uma escolha."',
+        '"Morrer aqui dentro é voltar. Fugir é viver com o que achou."',
+      ],
     },
   },
 

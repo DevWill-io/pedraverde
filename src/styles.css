@@ -2819,3 +2819,96 @@ button,
   animation: pulsar 1.4s infinite;
   font-size: 11px;
 }
+
+/* ================================================================== */
+/* DUNGEON PROCEDURAL                                                  */
+/* ================================================================== */
+
+/* Faixa da dungeon no header */
+.faixa-dungeon {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: rgba(199, 146, 234, 0.08);
+  border: 1px solid rgba(199, 146, 234, 0.45);
+  border-radius: 6px;
+  font-size: 12px;
+  align-items: center;
+}
+
+.dungeon-tag {
+  color: #c792ea;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+  text-shadow: 0 0 8px rgba(199, 146, 234, 0.5);
+}
+
+.dungeon-info {
+  color: var(--texto);
+  font-size: 11px;
+}
+
+.dungeon-loot {
+  color: var(--amarelo);
+  font-size: 11px;
+  margin-left: auto;
+}
+
+/* Linhas no log */
+.linha['dungeon-titulo'] .prefixo { color: #c792ea; }
+.linha['dungeon-titulo'] .texto {
+  color: #c792ea;
+  font-weight: bold;
+  letter-spacing: 0.3px;
+}
+
+.linha['dungeon-info'] .texto {
+  color: var(--texto-fraco);
+  font-style: italic;
+  font-size: 12px;
+}
+
+/* Chips da dungeon */
+.chip-dungeon {
+  border-color: rgba(199, 146, 234, 0.5);
+  color: #c792ea;
+  background: rgba(199, 146, 234, 0.08);
+  font-weight: bold;
+}
+.chip-dungeon:hover {
+  background: rgba(199, 146, 234, 0.18);
+  border-color: #c792ea;
+  color: #c792ea;
+}
+
+/* Chip de entrada no portal */
+.chip-portal {
+  border-color: rgba(199, 146, 234, 0.6);
+  color: #c792ea;
+  background: rgba(199, 146, 234, 0.12);
+  font-weight: bold;
+  animation: pulsar 1.8s infinite;
+}
+.chip-portal:hover {
+  background: rgba(199, 146, 234, 0.22);
+  border-color: #c792ea;
+  color: #d4a8ec;
+}
+
+/* Mobile */
+@media (max-width: 640px) {
+  .faixa-dungeon {
+    font-size: 10px;
+    padding: 6px 8px;
+  }
+  .dungeon-info,
+  .dungeon-loot {
+    font-size: 10px;
+  }
+  .dungeon-loot {
+    margin-left: 0;
+    width: 100%;
+  }
+}

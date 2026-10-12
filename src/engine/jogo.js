@@ -24,6 +24,10 @@ import {
   hoje, ontem, sortearMissoesDiarias, recompensaStreak, acharMissao,
   MISSOES_DIARIAS, STREAK_RECOMPENSAS,
 } from '../content/diarias.js';
+import {
+  DUNGEON_INFO, gerarDungeon, bonusPorAndar,
+  poolInimigos, poolMiniChefes, poolChefeFinal,
+} from '../content/dungeon.js'; 
 
 injetarItens(ITENS);
 
@@ -165,6 +169,7 @@ export function novoJogo(opcoes = {}) {
     titulo: null,
     questsAtivas: [], questsCompletas: [], progresso: {}, flags: {},
     emCombate: null,
+    dungeon: null,   // ⭐ Dungeon procedural ativa (ou null)
     estatisticas: {
       locaisVisitados: ['pedraverde'], inimigosMortos: {},
       mortes: 0, danoTotal: 0, danoRecebido: 0, magiasLancadas: 0,
@@ -322,6 +327,8 @@ function normalizarEstado(e) {
   if (typeof e.estatisticas.itensCriados !== 'number') e.estatisticas.itensCriados = 0;
   if (typeof e.estatisticas.itensEncantados !== 'number') e.estatisticas.itensEncantados = 0;
   if (typeof e.estatisticas.fugasInimigos !== 'number') e.estatisticas.fugasInimigos = 0;
+    // ⭐ Dungeon (retrocompatível)
+  if (e.dungeon === undefined) e.dungeon = null;
   return e;
 }
 
@@ -1163,12 +1170,21 @@ function vencer(e, p) {
     p(`Loot: ${n.join(', ')}.`, 'loot');
   }
   e.flags[`derrotou_${ini.id}`] = true;
+  const role = ini.dungeonRole;
   e.emCombate = null; e.efeitos = [];
   progredir(e, 'matar', ini.id, p);
   progredirDiaria(e, 'matar', 1, p);
   if (b.chefe) progredirDiaria(e, 'matar_chefe', 1, p);
   checarNivel(e, p);
   checarConquistas(e, p);
+
+  /* ⭐ Se matou o chefe final da dungeon, conclui */
+  if (role === 'chefe_final') {
+    concluirDungeon(e, p);
+  } else if (role) {
+    p('', 'espaco');
+    p('Use "avancar" para continuar explorando.', 'sistema');
+  }
 }
 
 function morrer(e, p) {
@@ -1193,9 +1209,12 @@ function morrer(e, p) {
   e.moedas -= perdidas;
   e.hp = e.hpMax; e.mana = e.manaMax;
   e.local = 'pedraverde';
+  const estavaNaDungeon = !!e.dungeon;
+  e.dungeon = null;
   e.estatisticas.mortes += 1;
   p('✖ Você caiu...', 'morte');
   p(`Acorda em Pedraverde. -${perdidas} moedas.`, 'morte');
+  if (estavaNaDungeon) p('   O portal te expulsou — você perdeu o progresso da dungeon.', 'aviso');
   checarConquistas(e, p);
 }
 
@@ -1447,6 +1466,186 @@ function comandoHora(e, p) {
 }
 
 /* ================================================================== */
+/* DUNGEON PROCEDURAL                                                  */
+/* ================================================================== */
+
+function iniciarDungeon(e, p) {
+  const d = gerarDungeon();
+  e.dungeon = d;
+  p('', 'espaco');
+  p(`🌀 Você atravessa o portal...`, 'dungeon-titulo');
+  p(`   A ${DUNGEON_INFO.nome} tem ${d.totalAndares} andares.`, 'dungeon-info');
+  p('   Use "avancar" para explorar, "sair_dungeon" para fugir.', 'sistema');
+  p('', 'espaco');
+  resolverSalaDungeon(e, p);
+}
+
+function resolverSalaDungeon(e, p) {
+  const d = e.dungeon;
+  if (!d) return;
+  const andar = d.andares[d.andarAtual - 1];
+  if (!andar) { concluirDungeon(e, p); return; }
+  const sala = andar[d.salaAtual];
+  if (!sala) { proximoAndarDungeon(e, p); return; }
+
+  sala.visitada = true;
+  const bonus = bonusPorAndar(d.andarAtual);
+  p(`— Andar ${d.andarAtual}/${d.totalAndares} · Sala ${d.salaAtual + 1}/${andar.length} —`, 'dungeon-titulo');
+
+  switch (sala.tipo) {
+    case 'combate': {
+      const pool = poolInimigos(d.andarAtual);
+      const idIni = pool[Math.floor(Math.random() * pool.length)];
+      iniciarCombateDungeon(e, idIni, p, bonus, 'normal');
+      break;
+    }
+    case 'tesouro': {
+      const moedas = Math.round((20 + Math.random() * 30) * bonus.moedasMult);
+      e.moedas += moedas;
+      d.recompensaAcumulada.moedas += moedas;
+      p(`💰 Você encontrou um baú! +${moedas} moedas.`, 'loot');
+      if (Math.random() < 0.5 + bonus.lootBonus) {
+        const itens = ['pocao', 'elixir_maior', 'antidoto', 'gema_rubi', 'gema_safira', 'cristal', 'elixir_mana'];
+        const itemId = itens[Math.floor(Math.random() * itens.length)];
+        addItem(e, itemId, 1);
+        d.recompensaAcumulada.itens.push(itemId);
+        p(`   Você também achou: ${ITENS[itemId].nome}${raridadeTag(ITENS[itemId])}.`, 'loot');
+      }
+      break;
+    }
+    case 'descanso': {
+      const hpAntes = e.hp, mpAntes = e.mana;
+      e.hp = Math.min(e.hpMax, e.hp + Math.round(e.hpMax * 0.4));
+      e.mana = Math.min(e.manaMax, e.mana + Math.round(e.manaMax * 0.4));
+      e.efeitos = [];
+      p(`✨ Uma fonte de energia restaura suas forças.`, 'cura');
+      p(`   HP ${hpAntes}→${e.hp} | MP ${mpAntes}→${e.mana}`, 'cura');
+      break;
+    }
+    case 'armadilha': {
+      const dano = Math.round((8 + Math.random() * 12) * (1 + (d.andarAtual - 1) * 0.1));
+      const evitou = Math.random() < 0.4;
+      if (evitou) {
+        p(`⚠ Você desviou de uma armadilha por pouco!`, 'sucesso');
+      } else {
+        e.hp -= dano;
+        p(`⚠ Armadilha! Você sofre ${dano} de dano. (${Math.max(0, e.hp)}/${e.hpMax} HP)`, 'dano-recebido');
+        if (e.hp <= 0) { morrer(e, p); return; }
+      }
+      break;
+    }
+    case 'evento': {
+      const ev = sortearEvento();
+      ev.aplicar(e, p);
+      e.estatisticas.eventosVividos += 1;
+      break;
+    }
+    case 'mini_chefe': {
+      const pool = poolMiniChefes();
+      const idIni = pool[Math.floor(Math.random() * pool.length)];
+      p(`👹 Um MINI-CHEFE bloqueia o caminho!`, 'aviso');
+      iniciarCombateDungeon(e, idIni, p, bonus, 'mini_chefe');
+      break;
+    }
+    case 'chefe_final': {
+      const pool = poolChefeFinal();
+      const idIni = pool[Math.floor(Math.random() * pool.length)];
+      p(`👑 O CHEFE FINAL da masmorra aguarda!`, 'aviso');
+      iniciarCombateDungeon(e, idIni, p, bonus, 'chefe_final');
+      break;
+    }
+  }
+
+  if (!e.emCombate) {
+    p('', 'espaco');
+    p(`Andar ${d.andarAtual}/${d.totalAndares} — Sala ${d.salaAtual + 1}/${andar.length}`, 'dungeon-info');
+    p('Use "avancar" para continuar.', 'sistema');
+  }
+}
+
+function proximoAndarDungeon(e, p) {
+  const d = e.dungeon;
+  if (!d) return;
+  if (d.andarAtual >= d.totalAndares) { concluirDungeon(e, p); return; }
+  d.andarAtual += 1;
+  d.salaAtual = 0;
+  p('', 'espaco');
+  p(`⬇ Você desce para o andar ${d.andarAtual}...`, 'dungeon-titulo');
+  p('', 'espaco');
+  resolverSalaDungeon(e, p);
+}
+
+function avancarDungeon(e, p) {
+  const d = e.dungeon;
+  if (!d) { p('Você não está numa dungeon.', 'erro'); return; }
+  if (e.emCombate) { p('Termine o combate primeiro!', 'erro'); return; }
+
+  const andar = d.andares[d.andarAtual - 1];
+  d.salaAtual += 1;
+
+  if (d.salaAtual >= andar.length) {
+    proximoAndarDungeon(e, p);
+  } else {
+    resolverSalaDungeon(e, p);
+  }
+}
+
+function concluirDungeon(e, p) {
+  const d = e.dungeon;
+  if (!d) return;
+  p('', 'espaco');
+  p('✦ Você completou a Masmorra Arcana!', 'dungeon-titulo');
+  p(`   Andares: ${d.totalAndares} · Moedas: ${d.recompensaAcumulada.moedas} · Itens: ${d.recompensaAcumulada.itens.length}`, 'dungeon-info');
+  const bonusXp = 100 + d.totalAndares * 30;
+  e.xp += bonusXp;
+  p(`   Bônus de conclusão: +${bonusXp} XP`, 'xp');
+  e.dungeon = null;
+  e.local = 'portao_arcano';
+  checarNivel(e, p);
+  checarConquistas(e, p);
+}
+
+function sairDungeon(e, p) {
+  const d = e.dungeon;
+  if (!d) { p('Você não está numa dungeon.', 'erro'); return; }
+  if (e.emCombate) { p('Fuja do combate primeiro!', 'erro'); return; }
+  const moedas = d.recompensaAcumulada.moedas;
+  p('🌀 Você atravessa o portal de volta.', 'dungeon-info');
+  p(`   Você levou ${moedas} moedas e ${d.recompensaAcumulada.itens.length} itens.`, 'loot');
+  e.dungeon = null;
+  e.local = 'portao_arcano';
+  checarNivel(e, p);
+  checarConquistas(e, p);
+}
+
+function iniciarCombateDungeon(e, id, p, bonus, role) {
+  const b = INIMIGOS[id];
+  const hpFinal = Math.round(b.hp * (1 + bonus.hpPct));
+  const atkFinal = b.atk + bonus.atkBonus;
+  const defFinal = b.def + bonus.defBonus;
+
+  e.emCombate = {
+    id, nome: b.nome, hp: hpFinal, hpMax: hpFinal,
+    atk: atkFinal, def: defFinal,
+    chefe: role === 'chefe_final' || role === 'mini_chefe',
+    turno: 1,
+    defesaAtiva: false, esquivaAtiva: false, criticoCarregado: false,
+    inimigoDefendendo: false, inimigoEsquivando: false, inimigoFocando: false,
+    enfurecido: false, efeitos: [], arena: false,
+    segundaChanceUsada: false,
+    ultimaAcaoJogador: 'atacar',
+    dungeonRole: role,
+    dungeonBonus: bonus,
+  };
+
+  const tipo = role !== 'normal' ? 'combate-chefe' : 'combate-inicio';
+  const prefixo = role === 'mini_chefe' ? '👹 MINI-CHEFE:' : role === 'chefe_final' ? '👑 CHEFE FINAL:' : '⚔';
+  p(`${prefixo} ${b.nome} (Nv dungeons: +${Math.round(bonus.hpPct * 100)}% HP, +${bonus.atkBonus} ATK)`, tipo);
+  if (b.desc) p(b.desc, 'sistema');
+  mostrarStatusCombate(e, p);
+}
+
+/* ================================================================== */
 /* MAPA                                                                */
 /* ================================================================== */
 function comandoMapa(e, p) {
@@ -1600,6 +1799,7 @@ const AJUDA = [
   'talentos · escolher <nível> <1|2>',
   'conquistas · titulo <nome>',
   'diarias · reivindicar [missão|streak]',
+  'entrar · avancar · sair_dungeon (no Portão Arcano)',
   'bestiario · diario · treinar <inimigo> · status',
   'receitas · craftar <item> · encantamentos · encantar <slot> <tipo>',
   'falar · loja · comprar <item|número> · vender <item|número>',
@@ -1622,6 +1822,14 @@ export function processar(estadoAnterior, entradaBruta) {
   // ⭐ Atualiza missões diárias ao entrar (sorteia novas se virou o dia)
   atualizarDiarias(e, p);
 
+  /* ⭐ Bloqueia comandos fora de contexto quando está na dungeon */
+  if (e.dungeon) {
+    const PROIBIDOS_DUNGEON = ['ir', 'andar', 'pegar', 'falar', 'loja', 'shop', 'comprar', 'buy', 'vender', 'sell', 'treinar', 'lutar', 'descansar', 'dormir'];
+    if (PROIBIDOS_DUNGEON.includes(cmd)) {
+      p('Você está na dungeon! Use "avancar" ou "sair_dungeon".', 'erro');
+      return { estado: e, linhas };
+    }
+  }
   if (e.emCombate && !PERMITIDOS_EM_COMBATE.includes(cmd)) {
     p('⚔ Você está em combate!', 'erro');
     return { estado: e, linhas };
@@ -1942,6 +2150,21 @@ export function processar(estadoAnterior, entradaBruta) {
       break;
     case 'reivindicar': case 'claim':
       reivindicarRecompensa(e, arg, p);
+      break;
+    /* ⭐ Comandos da dungeon */
+    case 'entrar': {
+      if (e.dungeon) { p('Você já está na dungeon.', 'erro'); break; }
+      if (!local.portal) { p('Não há portal aqui.', 'erro'); break; }
+      if (e.nivel < 3) { p('🔒 Você precisa de nível 3+ para entrar na Masmorra Arcana.', 'erro'); break; }
+      p('⚠ Aviso: você perderá o progresso se morrer aqui dentro.', 'aviso');
+      iniciarDungeon(e, p);
+      break;
+    }
+    case 'avancar': case 'continue':
+      avancarDungeon(e, p);
+      break;
+    case 'sair_dungeon': case 'leave_dungeon':
+      sairDungeon(e, p);
       break;
     case 'bestiario': {
       const m = e.estatisticas.inimigosMortos || {};
