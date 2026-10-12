@@ -3007,3 +3007,52 @@ button,
   font-size: 11px;
   animation: pulsar 2s infinite;
 }
+
+/* ================================================================== */
+/* COMPANHEIROS                                                        */
+/* ================================================================== */
+
+.faixa-companheiro {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: rgba(126, 231, 135, 0.06);
+  border: 1px solid rgba(126, 231, 135, 0.35);
+  border-radius: 6px;
+  font-size: 12px;
+  align-items: center;
+}
+
+.comp-tag {
+  color: var(--verde);
+  font-weight: bold;
+  letter-spacing: 0.3px;
+}
+
+.comp-classe {
+  color: var(--texto-fraco);
+  font-size: 11px;
+}
+
+.comp-afin {
+  color: var(--amarelo);
+  font-size: 11px;
+  margin-left: auto;
+}
+
+.chip-companheiro {
+  border-color: rgba(126, 231, 135, 0.5);
+  color: var(--verde);
+  background: rgba(126, 231, 135, 0.08);
+  font-weight: bold;
+}
+.chip-companheiro:hover {
+  background: rgba(126, 231, 135, 0.18);
+  border-color: var(--verde);
+  color: #a7f3b0;
+}
+
+/* Linha de info neutra */
+.linha.info .texto { color: var(--texto); }

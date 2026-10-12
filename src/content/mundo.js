@@ -170,6 +170,7 @@ export const MUNDO = {
     saidas: { oeste: 'floresta' },
     inimigos: ['esqueleto', 'esqueleto'],
     chanceEncontro: 0.65,
+    companheiro: 'lira',
     itensNoChao: ['cota_malha'],
     chefe: 'ogro',
   },
@@ -231,6 +232,7 @@ export const MUNDO = {
     desc: 'Paliçadas de troncos, tochas vermelhas. Um trono feito de ossos e ouro ocupa o centro.',
     variacoes: ['Um tambor bate ao longe.', 'Gritos de guerra vêm da muralha.', ''],
     saidas: { sul: 'colina_bandidos' },
+    companheiro: 'borin',
     chefe: 'rei_bandido',
   },
 
@@ -267,6 +269,7 @@ export const MUNDO = {
     desc: 'Um templo de mármore dourado. Vitrais contam a história do deus Sol. Um altar brilha no centro.',
     variacoes: ['Cânticos suaves vêm do fundo.', 'O incenso perfuma o ar.', ''],
     saidas: { oeste: 'vale_sol' },
+    companheiro: 'elyra',
     npc: {
       nome: 'Sacerdotisa Elena',
       falas: [
@@ -412,6 +415,7 @@ export const MUNDO = {
     saidas: { sul: 'porto', norte: 'passagem_gelo', leste: 'vale_gigantes' },
     inimigos: ['lobo_glacial', 'lobo_glacial'],
     chanceEncontro: 0.65,
+    companheiro: 'kael',
   },
 
   passagem_gelo: {

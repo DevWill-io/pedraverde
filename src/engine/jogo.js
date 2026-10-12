@@ -31,6 +31,10 @@ import {
 import {
   PROLOGO, CAMPANHA, FINAIS, capituloAtual, totalCapitulos, falasAldric,
 } from '../content/campanha.js';
+import {
+  COMPANHEIROS, acharCompanheiro, companheirosDoLocal,
+  nivelAfinidade, dadosAfinidade,
+} from '../content/companheiros.js';
 
 injetarItens(ITENS);
 
@@ -220,11 +224,14 @@ export function novoJogo(opcoes = {}) {
     questsAtivas: [], questsCompletas: [], progresso: {}, flags: {},
     emCombate: null,
     dungeon: null,
+    companheiros: [],           // IDs recrutados
+    companheiroAtivo: null,     // ID do ativo
+    afinidade: {},              // { companheiroId: valor }
     campanha: {
-      prologoVisto: false,
-      capitulosCompletos: [],
-      final: null,
-      escolhaFinalFeita: false,
+    prologoVisto: false,
+    capitulosCompletos: [],
+    final: null,
+    escolhaFinalFeita: false,
     },
     estatisticas: {
       locaisVisitados: ['pedraverde'], inimigosMortos: {},
@@ -310,6 +317,27 @@ function bonusConquistas(e) {
   return b;
 }
 
+/** Retorna o companheiro ativo (objeto) ou null */
+function companheiroAtivo(e) {
+  if (!e.companheiroAtivo) return null;
+  if (!e.companheiros.includes(e.companheiroAtivo)) return null;
+  return acharCompanheiro(e.companheiroAtivo);
+}
+
+/** Bônus de afinidade do companheiro ativo, aplicado ao jogador */
+function bonusAfinidade(e) {
+  const c = companheiroAtivo(e);
+  if (!c) return { atk: 0, def: 0, hpMax: 0 };
+  const valor = e.afinidade[c.id] || 0;
+  const dados = dadosAfinidade(valor);
+  const b = dados?.bonus || {};
+  return {
+    atk: b.atk || 0,
+    def: b.def || 0,
+    hpMax: b.hpMax || 0,
+  };
+}
+
 /* ================================================================== */
 /* Stats                                                               */
 /* ================================================================== */
@@ -326,6 +354,7 @@ export function atkTotal(e) {
   }
   total += bonusTalentos(e).atk;
   total += bonusConquistas(e).atk;
+  total += bonusAfinidade(e).atk;
   return Math.max(0, total);
 }
 export function defTotal(e) {
@@ -341,6 +370,7 @@ export function defTotal(e) {
   }
   total += bonusTalentos(e).def;
   total += bonusConquistas(e).def;
+  total += bonusAfinidade(e).def;
   return Math.max(0, total);
 }
 
@@ -377,6 +407,9 @@ function normalizarEstado(e) {
   if (typeof e.estatisticas.itensEncantados !== 'number') e.estatisticas.itensEncantados = 0;
   if (typeof e.estatisticas.fugasInimigos !== 'number') e.estatisticas.fugasInimigos = 0;
   if (e.dungeon === undefined) e.dungeon = null;
+  if (!Array.isArray(e.companheiros)) e.companheiros = [];
+  if (e.companheiroAtivo === undefined) e.companheiroAtivo = null;
+  if (!e.afinidade || typeof e.afinidade !== 'object') e.afinidade = {};
   if (!e.campanha) {
     e.campanha = {
       prologoVisto: false,
@@ -860,7 +893,7 @@ function listarArena(e, p) {
 /* Combate                                                             */
 /* ================================================================== */
 const ACOES_COMBATE = ['atacar', 'forte', 'rapido', 'defender', 'esquivar', 'focar', 'fugir'];
-const PERMITIDOS_EM_COMBATE = [...ACOES_COMBATE, 'usar', 'magia', 'magias', 'inventario', 'inv', 'i', 'status', 'ajuda', 'olhar', 'equipar', 'examinar', 'inspecionar', 'talentos', 'conquistas', 'clima', 'hora', 'diarias', 'reivindicar'];
+const PERMITIDOS_EM_COMBATE = [...ACOES_COMBATE, 'usar', 'magia', 'magias', 'inventario', 'inv', 'i', 'status', 'ajuda', 'olhar', 'equipar', 'examinar', 'inspecionar', 'talentos', 'conquistas', 'clima', 'hora', 'diarias', 'reivindicar', 'companheiros'];
 
 function iniciarCombate(e, id, p) {
   const b = INIMIGOS[id];
@@ -1167,6 +1200,14 @@ function turnoInimigo(e, p) {
   e.emCombate.defesaAtiva = false; e.emCombate.esquivaAtiva = false;
   ini.turno += 1; e.estatisticas.turnosDeCombate += 1;
   mostrarStatusCombate(e, p);
+
+  // ⭐ Turno do companheiro (age após o inimigo)
+  if (e.emCombate && e.emCombate.hp > 0) {
+    turnoCompanheiro(e, p);
+    if (e.emCombate && e.emCombate.hp <= 0) {
+      vencer(e, p);
+    }
+  }
 }
 
 function processarCombate(e, cmd, arg, p) {
@@ -1885,6 +1926,192 @@ function falarComNpc(e, arg, p) {
 }
 
 /* ================================================================== */
+/* COMPANHEIROS                                                        */
+/* ================================================================== */
+
+function listarCompanheiros(e, p) {
+  p('◆ Companheiros', 'titulo');
+  p(`Recrutados: ${e.companheiros.length}`, 'info');
+  p('', 'espaco');
+
+  if (!e.companheiros.length) {
+    p('  (nenhum — explore o mundo para encontrar aliados)', 'sistema');
+    p('  Companheiros estão espalhados em locais específicos.', 'sistema');
+    p('', 'espaco');
+  }
+
+  for (const id of e.companheiros) {
+    const c = acharCompanheiro(id);
+    if (!c) continue;
+    const ativo = e.companheiroAtivo === id;
+    const afin = e.afinidade[id] || 0;
+    const nivelAf = nivelAfinidade(afin);
+    const dadosAf = dadosAfinidade(afin);
+    p(`  ${c.emoji} ${c.nome} — ${c.classe}${ativo ? '  ⭐ ATIVO' : ''}`, ativo ? 'destaque' : 'sistema');
+    p(`     ${c.desc}`, 'item-desc');
+    p(`     Afinidade: ${afin} pts (${dadosAf.titulo})`, 'info');
+    if (dadosAf.bonus) {
+      const b = [];
+      if (dadosAf.bonus.atk) b.push(`+${dadosAf.bonus.atk} ATK`);
+      if (dadosAf.bonus.def) b.push(`+${dadosAf.bonus.def} DEF`);
+      if (dadosAf.bonus.hpMax) b.push(`+${dadosAf.bonus.hpMax} HP`);
+      if (b.length) p(`     Bônus passivo: ${b.join(' · ')}`, 'buff');
+    }
+    if (!ativo) p(`     Use "chamar ${c.nome}" para ativar`, 'sistema');
+    p('', 'separador');
+  }
+
+  const local = MUNDO[e.local];
+  if (local?.companheiro) {
+    const c = acharCompanheiro(local.companheiro);
+    if (c && !e.companheiros.includes(c.id)) {
+      const nivelOk = e.nivel >= c.nivelMinimo;
+      const flagOk = !c.precisaFlag || e.flags[c.precisaFlag];
+      p(`☻ ${c.emoji} ${c.nome} está aqui e pode ser recrutado.`, 'npc');
+      p(`   ${c.desc}`, 'item-desc');
+      if (!nivelOk) p(`   🔒 Precisa nível ${c.nivelMinimo}+`, 'erro');
+      if (!flagOk) p(`   🔒 Requer um feito específico`, 'erro');
+      if (nivelOk && flagOk) p(`   Use "recrutar ${c.nome}"`, 'quest-comando');
+    }
+  }
+}
+
+function recrutarCompanheiro(e, arg, p) {
+  const local = MUNDO[e.local];
+  if (!local?.companheiro) {
+    p('Não há ninguém para recrutar aqui.', 'erro');
+    return;
+  }
+  const c = acharCompanheiro(local.companheiro);
+  if (!c) { p('Ninguém encontrado.', 'erro'); return; }
+  if (e.companheiros.includes(c.id)) {
+    p(`${c.nome} já está com você.`, 'erro');
+    return;
+  }
+  if (e.nivel < c.nivelMinimo) {
+    p(`🔒 ${c.nome} precisa de um aliado nível ${c.nivelMinimo}+.`, 'erro');
+    return;
+  }
+  if (c.precisaFlag && !e.flags[c.precisaFlag]) {
+    p(`🔒 ${c.nome} não confia em você ainda. (Faça algo digno primeiro.)`, 'erro');
+    return;
+  }
+
+  // Recrutamento
+  p('', 'espaco');
+  p(`☻ ${c.emoji} ${c.nome} se aproxima...`, 'npc');
+  p('', 'espaco');
+  c.recrutamento.forEach((f) => p(f, 'fala'));
+  p('', 'espaco');
+  p(`✦ ${c.nome} juntou-se a você!`, 'talento-aprendido');
+  e.companheiros.push(c.id);
+  e.afinidade[c.id] = 0;
+  if (!e.companheiroAtivo) {
+    e.companheiroAtivo = c.id;
+    p(`   ${c.nome} está ativo como seu companheiro.`, 'sistema');
+  } else {
+    p(`   Use "chamar ${c.nome}" para trazê-lo para frente.`, 'sistema');
+  }
+  p('', 'espaco');
+}
+
+function dispensarCompanheiro(e, arg, p) {
+  const alvo = normalizar(arg);
+  if (!alvo) { p('Dispensar quem?', 'erro'); return; }
+  const c = e.companheiros
+    .map((id) => acharCompanheiro(id))
+    .find((x) => x && normalizar(x.nome).includes(alvo));
+  if (!c) { p('Companheiro não encontrado.', 'erro'); return; }
+  e.companheiros = e.companheiros.filter((id) => id !== c.id);
+  if (e.companheiroAtivo === c.id) {
+    e.companheiroAtivo = e.companheiros[0] || null;
+  }
+  p(`👋 ${c.nome} se despediu.`, 'aviso');
+  if (e.companheiroAtivo) {
+    const novo = acharCompanheiro(e.companheiroAtivo);
+    p(`   ${novo.nome} assumiu o posto.`, 'sistema');
+  }
+}
+
+function chamarCompanheiro(e, arg, p) {
+  const alvo = normalizar(arg);
+  if (!alvo) { p('Chamar quem? Use "companheiros" para ver.', 'erro'); return; }
+  const c = e.companheiros
+    .map((id) => acharCompanheiro(id))
+    .find((x) => x && normalizar(x.nome).includes(alvo));
+  if (!c) { p('Companheiro não encontrado.', 'erro'); return; }
+  e.companheiroAtivo = c.id;
+  p(`${c.emoji} ${c.nome} está ativo!`, 'talento-aprendido');
+}
+
+/** Turno do companheiro — age automaticamente após o jogador */
+function turnoCompanheiro(e, p) {
+  const c = companheiroAtivo(e);
+  if (!c) return;
+  const ini = e.emCombate;
+  if (!ini || ini.hp <= 0) return;
+
+  const afinAntes = e.afinidade[c.id] || 0;
+
+  // Escolhe ação
+  const rolagem = Math.random();
+  let acao, danoOuCura = 0;
+
+  if (c.magias.includes('cura') && e.hp / e.hpMax < 0.4 && rolagem < 0.6) {
+    // Cura
+    const cura = 15 + Math.round(e.hpMax * 0.15);
+    const antes = e.hp;
+    e.hp = Math.min(e.hpMax, e.hp + cura);
+    p(`✨ ${c.nome} conjura cura: +${e.hp - antes} HP.`, 'cura');
+    return; // curou, termina o turno
+  }
+
+  if (c.magias.length && rolagem < 0.5) {
+    // Magia de dano
+    const magiaId = c.magias[Math.floor(Math.random() * c.magias.length)];
+    const magia = MAGIAS[magiaId];
+    if (magia && magia.tipo === 'ataque') {
+      const mod = modificadorATK(c.atk);
+      const r = d20();
+      danoOuCura = Math.max(1, r + mod - Math.floor(ini.def * 0.5));
+      acao = 'magia';
+    }
+  }
+
+  if (!acao) {
+    // Ataque físico
+    const mod = modificadorATK(c.atk);
+    const r = d20();
+    danoOuCura = Math.max(1, r + mod - Math.floor(ini.def * 0.5));
+    acao = 'ataque';
+  }
+
+  // Aplica dano
+  ini.hp -= danoOuCura;
+  const emoji = acao === 'magia' ? '✦' : '⚔';
+  const fala = c.falasCombate[Math.floor(Math.random() * c.falasCombate.length)];
+  p(`${c.emoji} ${c.nome}: "${fala}" ${emoji} causa ${danoOuCura} de dano. (${Math.max(0, ini.hp)}/${ini.hpMax} HP)`, 'dano-causado');
+
+  // Ganha afinidade
+  e.afinidade[c.id] = afinAntes + 1;
+
+  // Verifica se subiu de nível de afinidade
+  const nivelAntes = nivelAfinidade(afinAntes);
+  const nivelDepois = nivelAfinidade(e.afinidade[c.id]);
+  if (nivelDepois > nivelAntes) {
+    const dados = dadosAfinidade(e.afinidade[c.id]);
+    p(`💞 Afinidade com ${c.nome} subiu! Nível ${nivelDepois}: ${dados.titulo}`, 'level-up');
+    if (dados.bonus) {
+      const b = [];
+      if (dados.bonus.atk) b.push(`+${dados.bonus.atk} ATK`);
+      if (dados.bonus.def) b.push(`+${dados.bonus.def} DEF`);
+      if (dados.bonus.hpMax) b.push(`+${dados.bonus.hpMax} HP`);
+      if (b.length) p(`   Bônus passivo: ${b.join(' · ')}`, 'buff');
+    }
+  }
+}
+
+/* ================================================================== */
 /* MAPA                                                                */
 /* ================================================================== */
 function comandoMapa(e, p) {
@@ -2041,6 +2268,7 @@ const AJUDA = [
   'diarias · reivindicar [missão|streak]',
   'entrar · avancar · sair_dungeon (no Portão Arcano)',
   'campanha · prologo · escolher_final',
+  'companheiros · recrutar <nome> · chamar <nome> · dispensar <nome>',
   'bestiario · diario · treinar <inimigo> · status',
   'receitas · craftar <item> · encantamentos · encantar <slot> <tipo>',
   'falar · loja · comprar <item|número> · vender <item|número>',
@@ -2366,6 +2594,18 @@ export function processar(estadoAnterior, entradaBruta) {
       break;
     case 'escolher_final': case 'final':
       escolhaFinal(e, arg, p);
+      break;
+    case 'companheiros': case 'companions': case 'party':
+      listarCompanheiros(e, p);
+      break;
+    case 'recrutar': case 'recruit':
+      recrutarCompanheiro(e, arg, p);
+      break;
+    case 'dispensar': case 'dismiss':
+      dispensarCompanheiro(e, arg, p);
+      break;
+    case 'chamar': case 'call':
+      chamarCompanheiro(e, arg, p);
       break;
     case 'bestiario': {
       const m = e.estatisticas.inimigosMortos || {};

@@ -15,6 +15,7 @@ import { PREFIXOS } from '../constants/prefixos.js';
 import { TOAST_TIPOS } from '../constants/toasts.js';
 import { capituloAtual, CAMPANHA } from '../content/campanha.js';
 import { tocar, somDeLinha, iniciarAmbiente, pararAmbiente } from '../audio.js';
+import { acharCompanheiro } from '../content/companheiros.js';
 
 const MAX_LOG = 1000;
 const ACOES_COMBATE_RAPIDAS = ['atacar', 'forte', 'rapido', 'defender', 'esquivar', 'focar', 'fugir'];
@@ -278,6 +279,23 @@ export default function TelaJogo({
           </div>
         )}
 
+        {/* ⭐ Banner do companheiro ativo */}
+        {estado.companheiroAtivo && acharCompanheiro(estado.companheiroAtivo) && (
+          <div className="faixa-companheiro">
+            {(() => {
+              const c = acharCompanheiro(estado.companheiroAtivo);
+              const afin = estado.afinidade?.[c.id] || 0;
+              return (
+                <>
+                  <span className="comp-tag">{c.emoji} {c.nome}</span>
+                  <span className="comp-classe">{c.classe}</span>
+                  <span className="comp-afin">💞 {afin}</span>
+                </>
+              );
+            })()}
+          </div>
+        )}
+
         {!emCombate && efeitosAtivos.length > 0 && (
           <div className="faixa-efeitos">
             {efeitosAtivos.map((ef, i) => {
@@ -354,6 +372,9 @@ export default function TelaJogo({
         ) : (
           <>
             {atalhos.map((a) => <button key={a} className="chip" onClick={() => setEntrada(a)}>{a}</button>)}
+            {estado.companheiros?.length > 0 && (
+              <button className="chip chip-companheiro" onClick={() => clicarComando('companheiros')}>☻ party</button>
+            )}
             {pontosTalento > 0 && <button className="chip chip-talento" onClick={() => clicarComando('talentos')}>★ talentos</button>}
           </>
         )}
