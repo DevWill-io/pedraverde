@@ -17,7 +17,8 @@ import { capituloAtual, CAMPANHA } from '../content/campanha.js';
 import { tocar, somDeLinha, iniciarAmbiente, pararAmbiente } from '../audio.js';
 import { acharCompanheiro } from '../content/companheiros.js';
 
-const MAX_LOG = 1000;
+const MAX_LOG = 1000;         // máximo exibido na tela
+const MAX_LOG_SALVO = 100;    // máximo enviado ao Firestore
 const ACOES_COMBATE_RAPIDAS = ['atacar', 'forte', 'rapido', 'defender', 'esquivar', 'focar', 'fugir'];
 
 export default function TelaJogo({
@@ -100,7 +101,7 @@ export default function TelaJogo({
   async function salvar(sil = false) {
     setSalvando(true);
     try {
-      const p = { ...estado, log: log.slice(-MAX_LOG), atualizadoEm: Date.now() };
+      const p = { ...estado, log: log.slice(-MAX_LOG_SALVO), atualizadoEm: Date.now() };
       await onSalvar(p);
       setEstado(p);
       if (!sil) {
@@ -142,7 +143,7 @@ export default function TelaJogo({
     empilhar(linhas);
 
     if (n.local !== estado.local || (estado.emCombate && !n.emCombate)) {
-      onSalvar({ ...n, log: [...log, ...linhas].slice(-MAX_LOG), atualizadoEm: Date.now() }).catch(() => {});
+      onSalvar({ ...n, log: [...log, ...linhas].slice(-MAX_LOG_SALVO), atualizadoEm: Date.now() }).catch(() => {});
     }
   }
 
