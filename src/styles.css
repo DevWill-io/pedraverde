@@ -3810,3 +3810,100 @@ button,
     font-size: 11px;
   }
   }
+
+/* ================================================================== */
+/* SAVE EXPORT / IMPORT — atualizado                                  */
+/* ================================================================== */
+
+.slot-cabecalho {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.slot-acoes {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.link-acao {
+  background: none;
+  border: none;
+  color: var(--azul);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 4px;
+  font-family: inherit;
+  letter-spacing: 0.3px;
+  opacity: 0.75;
+  transition: 0.15s;
+  white-space: nowrap;
+}
+
+.link-acao:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+.link-acao.desabilitado {
+  color: var(--texto-fraco);
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.link-acao.desabilitado:hover {
+  text-decoration: none;
+  opacity: 0.5;
+}
+
+.link-perigo {
+  background: none;
+  border: none;
+  color: var(--vermelho);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 4px;
+  font-family: inherit;
+  letter-spacing: 0.3px;
+  opacity: 0.65;
+  transition: 0.15s;
+  white-space: nowrap;
+}
+
+.link-perigo:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+/* Aviso do modo offline */
+.aviso-import {
+  margin-top: 16px;
+  padding: 10px 12px;
+  background: rgba(255, 209, 102, 0.06);
+  border: 1px solid rgba(255, 209, 102, 0.3);
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--texto);
+  line-height: 1.45;
+}
+
+.aviso-import strong {
+  color: var(--amarelo);
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  .link-acao,
+  .link-perigo {
+    font-size: 10px;
+    padding: 2px 2px;
+  }
+  .slot-acoes {
+    gap: 6px;
+  }
+}
