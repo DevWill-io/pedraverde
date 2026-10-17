@@ -1,3 +1,4 @@
+// src/components/Slots.jsx
 import { useEffect, useRef, useState } from 'react';
 import {
   SLOTS, lerSlot, apagarSlot, gravarSlot, exportarSave, lerArquivoSave,
@@ -12,6 +13,8 @@ export default function Slots({ usuario, usarNuvem, idioma = 'pt', onEscolher, o
   const [carregando, setCarregando] = useState(true);
   const [slotImport, setSlotImport] = useState(null);
   const fileInputRef = useRef(null);
+
+  const modoOffline = !!usuario.offline;
 
   async function recarregar() {
     setCarregando(true);
@@ -41,7 +44,7 @@ export default function Slots({ usuario, usarNuvem, idioma = 'pt', onEscolher, o
     onEscolher(slot, continuar);
   }
 
-  /* ---------- EXPORTAR ---------- */
+  /* ---------- EXPORTAR (disponível em qualquer modo) ---------- */
   async function exportar(slot) {
     try {
       const dados = resumos[slot]?.dados || (await lerSlot(usuario.uid, slot, usarNuvem));
@@ -57,17 +60,24 @@ export default function Slots({ usuario, usarNuvem, idioma = 'pt', onEscolher, o
     }
   }
 
-  /* ---------- IMPORTAR ---------- */
+  /* ---------- IMPORTAR (só em modo offline) ---------- */
   function pedirImport(slot) {
+    if (!modoOffline) {
+      alert(
+        'Importação bloqueada.\n\n' +
+        'Para importar um save, saia da conta e entre no modo offline.\n' +
+        'Assim os saves importados não afetam o ranking global.',
+      );
+      return;
+    }
     tocar('clique');
     setSlotImport(slot);
-    // Pequeno delay pra state atualizar antes de abrir o seletor
     setTimeout(() => fileInputRef.current?.click(), 10);
   }
 
   async function aoEscolherArquivo(ev) {
     const file = ev.target.files?.[0];
-    ev.target.value = ''; // permite escolher o mesmo arquivo de novo
+    ev.target.value = '';
     if (!file || slotImport === null) return;
 
     try {
@@ -85,7 +95,7 @@ export default function Slots({ usuario, usarNuvem, idioma = 'pt', onEscolher, o
       tocar('moeda');
       await recarregar();
     } catch (e) {
-      alert('Erro ao importar: ' + e.message);
+      alert('Erro ao importar:\n\n' + e.message);
       tocar('erro');
     } finally {
       setSlotImport(null);
@@ -97,7 +107,7 @@ export default function Slots({ usuario, usarNuvem, idioma = 'pt', onEscolher, o
       <div className="painel slots">
         <h2 className="titulo-menor">{t('slots.titulo')}</h2>
         <p className="subtitulo">
-          {usuario.email || (usuario.offline ? t('slots.modoOffline') : t('slots.convidado'))}
+          {usuario.email || (modoOffline ? t('slots.modoOffline') : t('slots.convidado'))}
         </p>
 
         <div className="lista-slots">
@@ -119,11 +129,11 @@ export default function Slots({ usuario, usarNuvem, idioma = 'pt', onEscolher, o
                       </button>
                     )}
                     <button
-                      className="link-acao"
+                      className={modoOffline ? 'link-acao' : 'link-acao desabilitado'}
                       onClick={() => pedirImport(s)}
-                      title="Subir arquivo .json"
+                      title={modoOffline ? 'Subir arquivo .json' : 'Disponível apenas no modo offline'}
                     >
-                      ↑ importar
+                      ↑ importar{!modoOffline && ' 🔒'}
                     </button>
                     {temSave && (
                       <button className="link-perigo" onClick={() => apagar(s)}>
@@ -162,13 +172,20 @@ export default function Slots({ usuario, usarNuvem, idioma = 'pt', onEscolher, o
           })}
         </div>
 
+        {!modoOffline && (
+          <div className="aviso-import">
+            🔒 <strong>Importação bloqueada.</strong> Saves importados podem ter sido editados
+            manualmente. Para importar, saia da conta e entre em <strong>Modo Offline</strong>.
+            Isso mantém o ranking global justo.
+          </div>
+        )}
+
         <div className="rodape-painel">
           <button className="botao" onClick={recarregar}>{t('slots.recarregar')}</button>
           <button className="botao" onClick={onSair}>{t('slots.sair')}</button>
         </div>
       </div>
 
-      {/* Input invisível — acionado pelos links "importar" */}
       <input
         ref={fileInputRef}
         type="file"
@@ -178,4 +195,4 @@ export default function Slots({ usuario, usarNuvem, idioma = 'pt', onEscolher, o
       />
     </div>
   );
-}
+}l
