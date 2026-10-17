@@ -4,7 +4,7 @@ import { useState } from 'react';
 /* ================================================================ */
 /* ⚠️  TROQUE PELO SEU E-MAIL ABAIXO                                  */
 /* ================================================================ */
-const EMAIL_AUTORIZADO = 'TROQUE_PELO_SEU_EMAIL';
+const EMAIL_AUTORIZADO = 'williamssilva2133kk@gmail.com;
 
 /* ================================================================ */
 /* Componente principal                                              */
