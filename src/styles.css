@@ -3453,3 +3453,178 @@ button,
     font-size: 18px;
   }
 }
+
+/* ================================================================== */
+/* BOTÃO CAPTURAR (no header)                                         */
+/* ================================================================== */
+
+.preview-header-acoes {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.preview-btn-capturar {
+  padding: 6px 12px !important;
+  font-size: 12px !important;
+  border-color: rgba(255, 209, 102, 0.5) !important;
+  color: var(--amarelo) !important;
+  background: rgba(255, 209, 102, 0.08) !important;
+  font-weight: bold !important;
+}
+
+.preview-btn-capturar:hover {
+  background: rgba(255, 209, 102, 0.18) !important;
+  border-color: var(--amarelo) !important;
+}
+
+/* ================================================================== */
+/* MODO CAPTURA (fullscreen, sem chrome)                              */
+/* ================================================================== */
+
+.preview-tela.modo-captura .preview-header,
+.preview-tela.modo-captura .preview-abas {
+  display: none;
+}
+
+.preview-tela.modo-captura .preview-conteudo {
+  padding: 0;
+  align-items: stretch;
+}
+
+.preview-tela.modo-captura .card-tela {
+  max-width: 100%;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  border-radius: 0;
+  border: none;
+  padding: 16px;
+  padding-top: calc(16px + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+}
+
+/* No modo captura, a lista e o destaque ficam um pouco maiores */
+.preview-tela.modo-captura .card-lista li {
+  font-size: 12px;
+}
+
+.preview-tela.modo-captura .card-destaque {
+  font-size: 11px;
+}
+
+.preview-tela.modo-captura .card-titulo {
+  font-size: 16px;
+}
+
+/* Botão "Sair" flutuante */
+.captura-sair {
+  position: fixed;
+  top: calc(10px + env(safe-area-inset-top, 0px));
+  right: 10px;
+  z-index: 100;
+  padding: 6px 12px;
+  background: rgba(11, 15, 20, 0.85);
+  border: 1px solid var(--vermelho);
+  border-radius: 6px;
+  color: var(--vermelho);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: bold;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: 0.15s;
+}
+
+.captura-sair:hover {
+  background: rgba(255, 107, 107, 0.15);
+}
+
+/* Tabs flutuantes (bolinhas) */
+.captura-tabs {
+  position: fixed;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  gap: 4px;
+  background: rgba(11, 15, 20, 0.85);
+  border: 1px solid var(--borda);
+  border-radius: 999px;
+  padding: 4px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.captura-tabs button {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: transparent;
+  border: 1px solid var(--borda);
+  color: var(--texto-fraco);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.captura-tabs button:hover {
+  color: var(--texto);
+  border-color: var(--texto-fraco);
+}
+
+.captura-tabs button.ativa {
+  background: var(--azul);
+  color: var(--bg);
+  border-color: var(--azul);
+  box-shadow: 0 0 12px rgba(143, 211, 255, 0.4);
+}
+
+/* Dica temporária "tire o print agora" */
+.captura-dica {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 200;
+  padding: 14px 22px;
+  background: rgba(11, 15, 20, 0.95);
+  border: 1px solid var(--verde);
+  border-radius: 999px;
+  color: var(--verde);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.8), 0 0 20px rgba(126, 231, 135, 0.3);
+  animation: dica-piscar 0.6s ease infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes dica-piscar {
+  from { opacity: 0.7; }
+  to { opacity: 1; }
+}
+
+/* Responsivo extra pro modo captura em telas muito pequenas */
+@media (max-width: 400px) {
+  .preview-tela.modo-captura .card-tela {
+    padding: 10px;
+    padding-top: calc(10px + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+  .preview-tela.modo-captura .card-titulo {
+    font-size: 14px;
+  }
+  .preview-tela.modo-captura .card-lista li {
+    font-size: 11px;
+  }
+}
