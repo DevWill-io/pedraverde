@@ -1,6 +1,12 @@
-import React, { useState } from 'react';
+// src/components/Config.jsx
+import { useState } from 'react';
 import { IDIOMAS, traduzir } from '../content/i18n.js';
 import { jaInstalado, instalar } from '../pwa.js';
+
+/* ================================================================ */
+/* ⚠️  E-MAIL AUTORIZADO A VER O PREVIEW                             */
+/* ================================================================ */
+const EMAIL_DEV = 'williamssilva2133kk@gmail.com';
 
 export default function Config({
   idioma, setarIdioma,
@@ -10,6 +16,8 @@ export default function Config({
   musica, setarMusica,
   tema, setarTema,
   temPromptInstalar,
+  usuario,
+  onPreview,
   onFechar,
 }) {
   const t = (k) => traduzir(idioma, k);
@@ -19,6 +27,8 @@ export default function Config({
     const ok = await instalar();
     if (ok) setInstalado(true);
   }
+
+  const ehDev = usuario && (usuario.email || '').toLowerCase() === EMAIL_DEV;
 
   return (
     <div className="modal-overlay" onClick={onFechar}>
@@ -99,6 +109,40 @@ export default function Config({
               <span className="config-info">Disponível no Chrome/Edge Android</span>
             )}
           </div>
+
+          {/* ⭐ BOTÃO SECRETO — só aparece pro e-mail autorizado */}
+          {ehDev && onPreview && (
+            <>
+              <div style={{
+                marginTop: 16,
+                paddingTop: 12,
+                borderTop: '1px dashed var(--borda)',
+              }}>
+                <div style={{
+                  fontSize: 10,
+                  color: 'var(--texto-fraco)',
+                  letterSpacing: 2,
+                  textTransform: 'uppercase',
+                  marginBottom: 8,
+                  opacity: 0.6,
+                }}>
+                  Modo Desenvolvedor
+                </div>
+                <button
+                  className="botao"
+                  style={{
+                    width: '100%',
+                    borderColor: 'rgba(255, 209, 102, 0.5)',
+                    color: 'var(--amarelo)',
+                    background: 'rgba(255, 209, 102, 0.08)',
+                  }}
+                  onClick={() => { onFechar(); onPreview(); }}
+                >
+                  📸 Preview de Apresentação
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
