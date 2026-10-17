@@ -138,7 +138,7 @@ export default function Config({
                   }}
                   onClick={() => { onFechar(); onPreview(); }}
                 >
-                  📸 Preview de Apresentação
+                  📖 Guia do Projeto
                 </button>
               </div>
             </>
