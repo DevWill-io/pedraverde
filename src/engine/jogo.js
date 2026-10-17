@@ -148,7 +148,7 @@ const FILTROS_INVENTARIO = {
 /* ================================================================== */
 /* XP                                                                  */
 /* ================================================================== */
-function xpProximoNivel(nivel) {
+export function xpProximoNivel(nivel) {
   return Math.round(nivel * 20 + Math.pow(nivel, 1.5) * 3);
 }
 
