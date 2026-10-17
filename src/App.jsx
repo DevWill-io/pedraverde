@@ -8,6 +8,7 @@ import { MUNDO } from './content/mundo.js';
 import { lerIdioma, gravarIdioma, traduzir } from './content/i18n.js';
 import {
   tocar, setSomHabilitado, setVolume,
+  setAmbienteHabilitado, setAmbienteVolume,
   iniciarMusica, pararMusica, musicaEstaAtiva,
 } from './audio.js';
 import { ouvirPromptInstalar } from './pwa.js';
@@ -19,9 +20,9 @@ import Tutorial from './components/Tutorial.jsx';
 import Config from './components/Config.jsx';
 import Chat from './components/Chat.jsx';
 import Ranking from './components/Ranking.jsx';
+import Preview from './components/Preview.jsx';
 import TelaCriacao from './components/TelaCriacao.jsx';
 import TelaJogo from './components/TelaJogo.jsx';
-import { setAmbienteHabilitado, setAmbienteVolume } from './audio.js';
 
 export default function App() {
   const [carregando, setCarregando] = useState(true);
@@ -33,30 +34,31 @@ export default function App() {
   const [mostrarConfig, setMostrarConfig] = useState(false);
   const [mostrarChat, setMostrarChat] = useState(false);
   const [mostrarRanking, setMostrarRanking] = useState(false);
+  const [mostrarPreview, setMostrarPreview] = useState(false);
 
   const cfg = lerConfig();
   const [idioma, setIdioma] = useState(cfg.idioma || lerIdioma());
   const [som, setSom] = useState(cfg.som !== false);
+  const [ambiente, setAmbiente] = useState(cfg.ambiente !== false);
   const [volume, setVolumeState] = useState(typeof cfg.volume === 'number' ? cfg.volume : 0.5);
   const [musica, setMusica] = useState(!!cfg.musica);
   const [tema, setTema] = useState(cfg.tema || 'escuro');
-  const [ambiente, setAmbiente] = useState(cfg.ambiente !== false);
   const [temPromptInstalar, setTemPromptInstalar] = useState(false);
 
   /* Aplica config */
   useEffect(() => {
     setSomHabilitado(som);
     setVolume(volume);
-    setAmbienteHabilitado(ambiente);   // ⭐ NOVO
-    setAmbienteVolume(volume);         // ⭐ NOVO
-    gravarConfig({ idioma, som, ambiente, volume, musica, tema });  // incluir ambiente
+    setAmbienteHabilitado(ambiente);
+    setAmbienteVolume(volume);
+    gravarConfig({ idioma, som, ambiente, volume, musica, tema });
     document.documentElement.setAttribute('data-tema', tema);
   }, [idioma, som, ambiente, volume, musica, tema]);
 
   useEffect(() => { gravarIdioma(idioma); }, [idioma]);
   useEffect(() => { ouvirPromptInstalar(setTemPromptInstalar); }, []);
 
-  /* Música */
+  /* Música de fundo */
   useEffect(() => {
     if (musica) {
       const tentarIniciar = () => { if (!musicaEstaAtiva()) iniciarMusica(); };
@@ -67,7 +69,9 @@ export default function App() {
         window.removeEventListener('click', tentarIniciar);
         window.removeEventListener('touchstart', tentarIniciar);
       };
-    } else pararMusica();
+    } else {
+      pararMusica();
+    }
   }, [musica]);
 
   /* Sessão Firebase */
@@ -90,6 +94,7 @@ export default function App() {
     setSlotAtual(null);
     setEstadoInicial(null);
     setSlotPendente(null);
+    setMostrarPreview(false);
     if (usuario && !usuario.offline && auth) {
       try { await signOut(auth); } catch {}
     } else {
@@ -139,12 +144,22 @@ export default function App() {
   const abrirConfig = () => { tocar('clique'); setMostrarConfig(true); };
   const abrirChat = () => { tocar('clique'); setMostrarChat(true); };
   const abrirRanking = () => { tocar('clique'); setMostrarRanking(true); };
+  const abrirPreview = () => { tocar('clique'); setMostrarPreview(true); };
 
   const usuarioParaChat = usuario && !usuario.offline
     ? { ...usuario, nome: (estadoInicial && estadoInicial.nome) || usuario.email?.split('@')[0] || 'Anônimo' }
     : null;
 
   /* -------- Renderização por estado -------- */
+
+  if (mostrarPreview) {
+    return (
+      <Preview
+        usuario={usuario}
+        onVoltar={() => setMostrarPreview(false)}
+      />
+    );
+  }
 
   if (mostrarTutorial) return <Tutorial idioma={idioma} onVoltar={fecharTutorial} />;
 
@@ -208,8 +223,8 @@ export default function App() {
           setarIdioma={setIdioma}
           som={som}
           setarSom={setSom}
-          ambiente={ambiente}              // ⭐ NOVO
-          setarAmbiente={setAmbiente}      // ⭐ NOVO
+          ambiente={ambiente}
+          setarAmbiente={setAmbiente}
           volume={volume}
           setarVolume={setVolumeState}
           musica={musica}
@@ -217,16 +232,26 @@ export default function App() {
           tema={tema}
           setarTema={setTema}
           temPromptInstalar={temPromptInstalar}
+          usuario={usuario}
+          onPreview={abrirPreview}
           onFechar={() => setMostrarConfig(false)}
         />
       )}
 
       {mostrarChat && (
-        <Chat idioma={idioma} usuario={usuarioParaChat} onFechar={() => setMostrarChat(false)} />
+        <Chat
+          idioma={idioma}
+          usuario={usuarioParaChat}
+          onFechar={() => setMostrarChat(false)}
+        />
       )}
 
       {mostrarRanking && (
-        <Ranking idioma={idioma} usuario={usuario} onFechar={() => setMostrarRanking(false)} />
+        <Ranking
+          idioma={idioma}
+          usuario={usuario}
+          onFechar={() => setMostrarRanking(false)}
+        />
       )}
     </>
   );
